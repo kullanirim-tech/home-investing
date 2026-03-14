@@ -37,16 +37,16 @@ function App() {
       const monthlyHouseGrowth = inputs.annualRealEstateGrowth / 12 / 100
       currentHousePrice = currentHousePrice * (1 + monthlyHouseGrowth)
 
-      if (month % 12 === 0) {
-        data.push({
-          year: month / 12,
-          savings: Math.round(currentSavings),
-          housePrice: Math.round(currentHousePrice)
-        })
-      }
+      data.push({
+        year: (month / 12).toFixed(1),
+        savings: Math.round(currentSavings),
+        housePrice: Math.round(currentHousePrice)
+      })
 
       month++
     }
+
+    const canAfford = currentSavings >= currentHousePrice
 
     const years = Math.floor(month / 12)
     const months = month % 12
@@ -59,7 +59,8 @@ function App() {
       finalHousePrice: Math.round(currentHousePrice),
       tapuMasrafi: Math.round(tapuMasrafi),
       totalRequired: Math.round(totalRequired),
-      data
+      data,
+      canAfford
     })
   }
 
@@ -161,15 +162,26 @@ function App() {
               <h2 className="text-2xl font-semibold text-orange-700 mb-6">Sonuçlar</h2>
 
               <div className="space-y-4">
-                <div className="bg-orange-50 rounded-lg p-4">
-                  <p className="text-lg font-semibold text-orange-800">
-                    🎉 Evi {results.years} yıl {results.monthsRemaining} ay sonra alabilirsin!
-                  </p>
-                </div>
+                {results.canAfford ? (
+                  <div className="bg-green-50 rounded-lg p-4">
+                    <p className="text-lg font-semibold text-green-800">
+                      🎉 Evi {results.years} yıl {results.monthsRemaining} ay sonra alabilirsin!
+                    </p>
+                  </div>
+                ) : (
+                  <div className="bg-red-50 rounded-lg p-4">
+                    <p className="text-lg font-semibold text-red-800">
+                      😔 Bu koşullarla 40 yıl içinde evi alamazsın.
+                    </p>
+                    <p className="text-sm text-red-700 mt-2">
+                      Öneri: Aylık birikimi artır veya daha düşük fiyatlı ev hedefle.
+                    </p>
+                  </div>
+                )}
 
                 <div className="space-y-2 text-gray-700">
                   <p className="flex justify-between">
-                    <span>Tapu Masrafı:</span>
+                    <span>Tapu Masrafı (%4):</span>
                     <span className="font-semibold">{results.tapuMasrafi.toLocaleString('tr-TR')} TL</span>
                   </p>
                   <p className="flex justify-between">
@@ -184,6 +196,14 @@ function App() {
                     <span>Son Ev Fiyatı:</span>
                     <span className="font-semibold text-red-600">{results.finalHousePrice.toLocaleString('tr-TR')} TL</span>
                   </p>
+                  {results.canAfford && (
+                    <p className="flex justify-between border-t pt-2 mt-2">
+                      <span>Kalan:</span>
+                      <span className="font-semibold text-orange-600">
+                        {(results.finalSavings - results.finalHousePrice).toLocaleString('tr-TR')} TL
+                      </span>
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -192,7 +212,7 @@ function App() {
 
         {/* Chart */}
         {results && results.data.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-lg p-6">
+          <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
             <h2 className="text-2xl font-semibold text-orange-700 mb-6">Grafik</h2>
             <ResponsiveContainer width="100%" height={400}>
               <LineChart data={results.data}>
@@ -205,6 +225,43 @@ function App() {
                 <Line type="monotone" dataKey="housePrice" stroke="#dc2626" strokeWidth={2} name="Ev Fiyatı" />
               </LineChart>
             </ResponsiveContainer>
+          </div>
+        )}
+
+        {/* Detailed Table */}
+        {results && results.data.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-lg p-6">
+            <h2 className="text-2xl font-semibold text-orange-700 mb-6">Detaylı Tablo</h2>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-orange-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-orange-700 uppercase tracking-wider">Yıl</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-orange-700 uppercase tracking-wider">Birikim</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-orange-700 uppercase tracking-wider">Ev Fiyatı</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-orange-700 uppercase tracking-wider">Kalan</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {results.data.map((row, index) => (
+                    <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-orange-50'}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.year}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium">
+                        {row.savings.toLocaleString('tr-TR')} TL
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">
+                        {row.housePrice.toLocaleString('tr-TR')} TL
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <span className={row.savings >= row.housePrice ? 'text-green-600 font-bold' : 'text-gray-900'}>
+                          {(row.savings - row.housePrice).toLocaleString('tr-TR')} TL
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
