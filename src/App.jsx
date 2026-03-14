@@ -43,6 +43,14 @@ function App() {
     annualRealEstateGrowth: '',
   })
 
+  const [inputValues, setInputValues] = useState({
+    currentSavings: '0',
+    monthlySavings: '0',
+    monthlyReturn: '0',
+    housePrice: '0',
+    annualRealEstateGrowth: '0',
+  })
+
   const [results, setResults] = useState(null)
   const [isCalculating, setIsCalculating] = useState(false)
   const [toast, setToast] = useState(null)
@@ -54,8 +62,12 @@ function App() {
   }, [savedTimeout])
 
   const handleInputChange = (name, value) => {
-    const newInputs = { ...inputs, [name]: value }
+    const rawValue = value.replace(/[^0-9.]/g, '')
+    const numericValue = rawValue === '' ? 0 : parseFloat(rawValue)
+
+    const newInputs = { ...inputs, [name]: numericValue }
     setInputs(newInputs)
+    setInputValues({ ...inputValues, [name]: formatNumber(numericValue) })
 
     if (window.storage) {
       if (savedTimeout) clearTimeout(savedTimeout)
@@ -72,12 +84,28 @@ function App() {
     }
   }
 
+  const handleInputFocus = (name) => {
+    setInputValues({ ...inputValues, [name]: String(inputs[name]) })
+  }
+
+  const handleInputBlur = (name) => {
+    setInputValues({ ...inputValues, [name]: formatNumber(inputs[name]) })
+  }
+
   useEffect(() => {
     const loadInputs = async () => {
       try {
         const saved = await window.storage.get('evAlim_inputs')
         if (saved && saved.value) {
-          setInputs(JSON.parse(saved.value))
+          const parsed = JSON.parse(saved.value)
+          setInputs(parsed)
+          setInputValues({
+            currentSavings: formatNumber(parsed.currentSavings || 0),
+            monthlySavings: formatNumber(parsed.monthlySavings || 0),
+            monthlyReturn: formatNumber(parsed.monthlyReturn || 0),
+            housePrice: formatNumber(parsed.housePrice || 0),
+            annualRealEstateGrowth: formatNumber(parsed.annualRealEstateGrowth || 0),
+          })
         }
       } catch (e) {
         console.error('Storage load error:', e)
@@ -91,23 +119,38 @@ function App() {
   }, [])
 
   const loadExample = () => {
-    setInputs({
-      currentSavings: '300000',
-      monthlySavings: '20000',
-      monthlyReturn: '1.5',
-      housePrice: '4000000',
-      annualRealEstateGrowth: '15',
+    const exampleInputs = {
+      currentSavings: 300000,
+      monthlySavings: 20000,
+      monthlyReturn: 1.5,
+      housePrice: 4000000,
+      annualRealEstateGrowth: 15,
+    }
+    setInputs(exampleInputs)
+    setInputValues({
+      currentSavings: formatNumber(300000),
+      monthlySavings: formatNumber(20000),
+      monthlyReturn: formatNumber(1.5),
+      housePrice: formatNumber(4000000),
+      annualRealEstateGrowth: formatNumber(15),
     })
     setResults(null)
   }
 
   const clearInputs = async () => {
     setInputs({
-      currentSavings: '',
-      monthlySavings: '',
-      monthlyReturn: '',
-      housePrice: '',
-      annualRealEstateGrowth: '',
+      currentSavings: 0,
+      monthlySavings: 0,
+      monthlyReturn: 0,
+      housePrice: 0,
+      annualRealEstateGrowth: 0,
+    })
+    setInputValues({
+      currentSavings: '0',
+      monthlySavings: '0',
+      monthlyReturn: '0',
+      housePrice: '0',
+      annualRealEstateGrowth: '0',
     })
     setResults(null)
     if (window.storage) {
@@ -172,14 +215,16 @@ function App() {
       const maxMonths = 480
       let month = 0
 
+      const today = new Date()
+      const monthNames = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara']
+
       while (month < maxMonths) {
-        if (month > 0 && month % 12 === 0) {
-          chartData.push({
-            year: month / 12,
-            savings: Math.round(savings),
-            housePrice: Math.round(price),
-          })
-        }
+        chartData.push({
+          month: month + 1,
+          label: `${monthNames[(today.getMonth() + month) % 12]} ${today.getFullYear() + Math.floor((today.getMonth() + month) / 12)}`,
+          savings: Math.round(savings),
+          housePrice: Math.round(price),
+        })
 
         if (savings >= price) {
           break
@@ -194,7 +239,6 @@ function App() {
       const years = Math.floor(month / 12)
       const remainingMonths = month % 12
 
-      const today = new Date()
       const targetDate = new Date(today)
       targetDate.setMonth(targetDate.getMonth() + month)
 
@@ -209,7 +253,7 @@ function App() {
       }
 
       setResults({
-        months: month,
+        months: month + 1,
         years,
         remainingMonths,
         targetDate: targetDate.toLocaleDateString('tr-TR', { year: 'numeric', month: 'long' }),
@@ -224,6 +268,10 @@ function App() {
 
       setIsCalculating(false)
     }, 300)
+  }
+
+  const getXAxisInterval = () => {
+    return results && results.months > 60 ? 6 : 1
   }
 
   return (
@@ -261,7 +309,7 @@ function App() {
                 </span>
                 Mevcut Birikim
               </label>
-              <input type="number" value={inputs.currentSavings} onChange={(e) => handleInputChange('currentSavings', e.target.value)} placeholder="0" style={{ width: '100%', height: '48px', padding: '12px 16px', fontSize: '16px', border: '1px solid #E5E7EB', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }} />
+              <input type="text" value={inputValues.currentSavings} onChange={(e) => handleInputChange('currentSavings', e.target.value)} onFocus={() => handleInputFocus('currentSavings')} onBlur={() => handleInputBlur('currentSavings')} placeholder="0" style={{ width: '100%', height: '48px', padding: '12px 16px', fontSize: '16px', border: '1px solid #E5E7EB', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }} />
             </div>
 
             <div>
@@ -271,7 +319,7 @@ function App() {
                 </span>
                 Aylık Birikim
               </label>
-              <input type="number" value={inputs.monthlySavings} onChange={(e) => handleInputChange('monthlySavings', e.target.value)} placeholder="0" style={{ width: '100%', height: '48px', padding: '12px 16px', fontSize: '16px', border: '1px solid #E5E7EB', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }} />
+              <input type="text" value={inputValues.monthlySavings} onChange={(e) => handleInputChange('monthlySavings', e.target.value)} onFocus={() => handleInputFocus('monthlySavings')} onBlur={() => handleInputBlur('monthlySavings')} placeholder="0" style={{ width: '100%', height: '48px', padding: '12px 16px', fontSize: '16px', border: '1px solid #E5E7EB', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }} />
             </div>
 
             <div>
@@ -281,7 +329,7 @@ function App() {
                 </span>
                 Aylık Yatırım Getirisi (%)
               </label>
-              <input type="number" value={inputs.monthlyReturn} onChange={(e) => handleInputChange('monthlyReturn', e.target.value)} placeholder="0" style={{ width: '100%', height: '48px', padding: '12px 16px', fontSize: '16px', border: '1px solid #E5E7EB', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }} />
+              <input type="text" value={inputValues.monthlyReturn} onChange={(e) => handleInputChange('monthlyReturn', e.target.value)} onFocus={() => handleInputFocus('monthlyReturn')} onBlur={() => handleInputBlur('monthlyReturn')} placeholder="0" style={{ width: '100%', height: '48px', padding: '12px 16px', fontSize: '16px', border: '1px solid #E5E7EB', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }} />
             </div>
 
             <div>
@@ -291,7 +339,7 @@ function App() {
                 </span>
                 Evin Fiyatı
               </label>
-              <input type="number" value={inputs.housePrice} onChange={(e) => handleInputChange('housePrice', e.target.value)} placeholder="0" style={{ width: '100%', height: '48px', padding: '12px 16px', fontSize: '16px', border: '1px solid #E5E7EB', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }} />
+              <input type="text" value={inputValues.housePrice} onChange={(e) => handleInputChange('housePrice', e.target.value)} onFocus={() => handleInputFocus('housePrice')} onBlur={() => handleInputBlur('housePrice')} placeholder="0" style={{ width: '100%', height: '48px', padding: '12px 16px', fontSize: '16px', border: '1px solid #E5E7EB', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }} />
             </div>
 
             <div>
@@ -301,7 +349,7 @@ function App() {
                 </span>
                 Yıllık Emlak Artışı (%)
               </label>
-              <input type="number" value={inputs.annualRealEstateGrowth} onChange={(e) => handleInputChange('annualRealEstateGrowth', e.target.value)} placeholder="0" style={{ width: '100%', height: '48px', padding: '12px 16px', fontSize: '16px', border: '1px solid #E5E7EB', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }} />
+              <input type="text" value={inputValues.annualRealEstateGrowth} onChange={(e) => handleInputChange('annualRealEstateGrowth', e.target.value)} onFocus={() => handleInputFocus('annualRealEstateGrowth')} onBlur={() => handleInputBlur('annualRealEstateGrowth')} placeholder="0" style={{ width: '100%', height: '48px', padding: '12px 16px', fontSize: '16px', border: '1px solid #E5E7EB', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }} />
             </div>
 
             <button onClick={calculatePlan} disabled={isCalculating} style={{ width: '100%', height: '52px', backgroundColor: '#0F766E', color: 'white', border: 'none', borderRadius: '8px', fontSize: '18px', fontWeight: '600', cursor: isCalculating ? 'not-allowed' : 'pointer', opacity: isCalculating ? '0.7' : '1', marginTop: '8px' }}>
@@ -378,7 +426,7 @@ function App() {
 
               <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)', minWidth: 0 }}>
                 <div style={{ fontSize: '12px', fontWeight: '500', color: '#6B7280', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Kesen Kadar
+                  {results.surplusShortfall >= 0 ? 'Birikim Fazlasi' : 'Açik'}
                 </div>
                 <div style={{ fontSize: '20px', fontWeight: '600', color: results.surplusShortfall >= 0 ? '#059669' : '#DC2626', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {formatCurrency(Math.abs(results.surplusShortfall))}
@@ -402,14 +450,30 @@ function App() {
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={results.chartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis dataKey="year" stroke="#6B7280" tick={{ fontSize: 12 }} label={{ value: 'Yil', position: 'insideBottom', offset: -5 }} />
+                  <XAxis
+                    dataKey="label"
+                    stroke="#6B7280"
+                    tick={{ fontSize: 12 }}
+                    interval={getXAxisInterval()}
+                    label={{ value: 'Ay', position: 'insideBottom', offset: -5 }}
+                  />
                   <YAxis stroke="#6B7280" tick={{ fontSize: 12 }} tickFormatter={formatYAxis} label={{ value: 'TL', angle: -90, position: 'insideLeft' }} />
                   <Tooltip formatter={(value) => formatCurrency(value)} contentStyle={{ backgroundColor: 'white', border: '1px solid #E5E7EB', borderRadius: '8px', padding: '12px' }} />
                   {results.canAfford && (
-                    <ReferenceLine x={results.years} stroke="#0F766E" strokeDasharray="3 3" label="Hedefe Ulasti" />
+                    <ReferenceLine x={results.chartData[results.chartData.length - 1].label} stroke="#0F766E" strokeDasharray="3 3" label="Hedefe Ulasti" />
                   )}
-                  <Line type="monotone" dataKey="savings" stroke="#0F766E" strokeWidth={3} name="Birikim" dot={{ fill: "#0F766E", strokeWidth: 2 }} />
-                  <Line type="monotone" dataKey="housePrice" stroke="#DC2626" strokeWidth={3} name="Ev Fiyati" dot={{ fill: "#DC2626", strokeWidth: 2 }} />
+                  <Line type="monotone" dataKey="savings" stroke="#0F766E" strokeWidth={3} name="Birikim" dot={false} />
+                  <Line type="monotone" dataKey="housePrice" stroke="#DC2626" strokeWidth={3} name="Ev Fiyati" dot={false} />
+                  {results.canAfford && (
+                    <Line
+                      type="monotone"
+                      data={[results.chartData[results.chartData.length - 1]]}
+                      stroke="#0F766E"
+                      strokeWidth={0}
+                      name="Kesisim"
+                      dot={{ fill: "#0F766E", strokeWidth: 2, r: 6 }}
+                    />
+                  )}
                 </LineChart>
               </ResponsiveContainer>
             </div>
