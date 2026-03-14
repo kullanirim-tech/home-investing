@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { useState, useEffect, useCallback } from 'react'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 
 const GOOGLE_FONTS_URL = 'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap'
 
@@ -14,6 +14,16 @@ const formatCurrency = (value) => {
 
 const formatNumber = (value) => {
   return new Intl.NumberFormat('tr-TR').format(value)
+}
+
+const formatYAxis = (value) => {
+  if (value >= 1000000000) {
+    return (value / 1000000000).toFixed(1) + 'Mr'
+  } else if (value >= 1000000) {
+    return (value / 1000000).toFixed(1) + 'Mn'
+  } else {
+    return (value / 1000).toFixed(0) + 'B'
+  }
 }
 
 function App() {
@@ -35,10 +45,50 @@ function App() {
 
   const [results, setResults] = useState(null)
   const [isCalculating, setIsCalculating] = useState(false)
+  const [toast, setToast] = useState(null)
+  const [savedTimeout, setSavedTimeout] = useState(null)
+
+  const saveTimeoutRef = useCallback((timeout) => {
+    if (savedTimeout) clearTimeout(savedTimeout)
+    setSavedTimeout(timeout)
+  }, [savedTimeout])
 
   const handleInputChange = (name, value) => {
-    setInputs(prev => ({ ...prev, [name]: value }))
+    const newInputs = { ...inputs, [name]: value }
+    setInputs(newInputs)
+
+    if (window.storage) {
+      if (savedTimeout) clearTimeout(savedTimeout)
+      const timeout = setTimeout(async () => {
+        try {
+          await window.storage.set('evAlim_inputs', JSON.stringify(newInputs))
+          setToast('Kaydedildi ✓')
+          setTimeout(() => setToast(null), 2000)
+        } catch (e) {
+          console.error('Storage error:', e)
+        }
+      }, 500)
+      saveTimeoutRef(timeout)
+    }
   }
+
+  useEffect(() => {
+    const loadInputs = async () => {
+      try {
+        const saved = await window.storage.get('evAlim_inputs')
+        if (saved && saved.value) {
+          setInputs(JSON.parse(saved.value))
+        }
+      } catch (e) {
+        console.error('Storage load error:', e)
+      }
+    }
+    loadInputs()
+
+    return () => {
+      if (savedTimeout) clearTimeout(savedTimeout)
+    }
+  }, [])
 
   const loadExample = () => {
     setInputs({
@@ -51,7 +101,7 @@ function App() {
     setResults(null)
   }
 
-  const clearInputs = () => {
+  const clearInputs = async () => {
     setInputs({
       currentSavings: '',
       monthlySavings: '',
@@ -60,6 +110,41 @@ function App() {
       annualRealEstateGrowth: '',
     })
     setResults(null)
+    if (window.storage) {
+      try {
+        await window.storage.delete('evAlim_inputs')
+      } catch (e) {
+        console.error('Storage delete error:', e)
+      }
+    }
+  }
+
+  const calculateRequiredMonthly = (currentSavings, housePrice, annualRealEstateGrowth, monthlyReturn, targetMonths) => {
+    let low = 0
+    let high = 1000000000
+    let result = 0
+
+    for (let i = 0; i < 50; i++) {
+      const mid = (low + high) / 2
+      let savings = currentSavings
+      let price = housePrice
+      const monthlyHouseRate = Math.pow(1 + annualRealEstateGrowth / 100, 1/12) - 1
+      const monthlyInvestmentRate = monthlyReturn / 100
+
+      for (let month = 0; month < targetMonths; month++) {
+        savings = savings * (1 + monthlyInvestmentRate) + mid
+        price = price * (1 + monthlyHouseRate)
+      }
+
+      if (savings >= price) {
+        high = mid
+        result = mid
+      } else {
+        low = mid
+      }
+    }
+
+    return Math.round(result)
   }
 
   const calculatePlan = () => {
@@ -78,41 +163,34 @@ function App() {
         return
       }
 
-      const monthlyReturnRate = monthlyReturn / 100
-      const monthlyHouseGrowthRate = (annualRealEstateGrowth / 12) / 100
+      const monthlyInvestmentRate = monthlyReturn / 100
+      const monthlyHouseRate = Math.pow(1 + annualRealEstateGrowth / 100, 1/12) - 1
 
-      let currentSavingsBalance = currentSavings
-      let currentHousePrice = housePrice
+      let savings = currentSavings
+      let price = housePrice
       const chartData = []
       const maxMonths = 480
       let month = 0
 
       while (month < maxMonths) {
-        const tapuMasrafi = currentHousePrice * 0.04
-        const totalRequired = currentHousePrice + tapuMasrafi
-
-        if (month % 12 === 0 && month > 0) {
+        if (month > 0 && month % 12 === 0) {
           chartData.push({
             year: month / 12,
-            savings: Math.round(currentSavingsBalance),
-            housePrice: Math.round(currentHousePrice),
-            totalRequired: Math.round(totalRequired),
+            savings: Math.round(savings),
+            housePrice: Math.round(price),
           })
         }
 
-        if (currentSavingsBalance >= totalRequired) {
+        if (savings >= price) {
           break
         }
 
-        currentSavingsBalance = currentSavingsBalance * (1 + monthlyReturnRate) + monthlySavings
-        currentHousePrice = currentHousePrice * (1 + monthlyHouseGrowthRate)
-
+        savings = savings * (1 + monthlyInvestmentRate) + monthlySavings
+        price = price * (1 + monthlyHouseRate)
         month++
       }
 
-      const finalTapu = currentHousePrice * 0.04
-      const finalTotal = currentHousePrice + finalTapu
-      const canAfford = currentSavingsBalance >= finalTotal
+      const canAfford = savings >= price
       const years = Math.floor(month / 12)
       const remainingMonths = month % 12
 
@@ -120,19 +198,27 @@ function App() {
       const targetDate = new Date(today)
       targetDate.setMonth(targetDate.getMonth() + month)
 
-      const surplusShortfall = currentSavingsBalance - finalTotal
+      let requiredMonthlyIncrease = null
+      let isImpossible = false
+
+      if (!canAfford) {
+        isImpossible = monthlyInvestmentRate <= monthlyHouseRate
+        if (isImpossible) {
+          requiredMonthlyIncrease = calculateRequiredMonthly(currentSavings, housePrice, annualRealEstateGrowth, monthlyReturn, 240)
+        }
+      }
 
       setResults({
-        months: month + 1,
+        months: month,
         years,
         remainingMonths,
         targetDate: targetDate.toLocaleDateString('tr-TR', { year: 'numeric', month: 'long' }),
-        finalSavings: Math.round(currentSavingsBalance),
-        finalHousePrice: Math.round(currentHousePrice),
-        finalTapu: Math.round(finalTapu),
-        finalTotal: Math.round(finalTotal),
-        surplusShortfall: Math.round(surplusShortfall),
+        finalSavings: Math.round(savings),
+        finalHousePrice: Math.round(price),
+        surplusShortfall: Math.round(savings - price),
         canAfford,
+        isImpossible,
+        requiredMonthlyIncrease,
         chartData,
       })
 
@@ -224,54 +310,87 @@ function App() {
           </div>
         </div>
 
+        {toast && (
+          <div style={{ position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)', backgroundColor: '#059669', color: 'white', padding: '12px 24px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)', zIndex: 1000, animation: 'fadeIn 0.3s ease-out' }}>
+            {toast}
+          </div>
+        )}
+
         {results && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <div style={{ backgroundColor: results.canAfford ? '#D1FAE5' : '#FEE2E2', borderRadius: '16px', padding: '24px', textAlign: 'center' }}>
-              <div style={{ fontSize: '14px', fontWeight: '600', color: results.canAfford ? '#059669' : '#DC2626', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                {results.canAfford ? 'Hedefe Ulasti!' : 'Hedef Devam Ediyor'}
+            {results.isImpossible ? (
+              <div style={{ backgroundColor: '#FEE2E2', borderRadius: '16px', padding: '24px', textAlign: 'center', border: '2px solid #DC2626' }}>
+                <div style={{ fontSize: '14px', fontWeight: '600', color: '#DC2626', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  ⚠️ Uyarı
+                </div>
+                <div style={{ fontSize: '18px', fontWeight: '700', color: '#1F2937', marginBottom: '12px' }}>
+                  Hedefe ulaşmak matematiksel olarak imkansız
+                </div>
+                <div style={{ fontSize: '16px', color: '#374151', marginBottom: '16px' }}>
+                  Emlak artış hızı birikim getirisini aşıyor
+                </div>
+                {results.requiredMonthlyIncrease !== null && (
+                  <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px', marginTop: '16px' }}>
+                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '8px' }}>
+                      20 yılda ulaşmak için:
+                    </div>
+                    <div style={{ fontSize: '24px', fontWeight: '700', color: '#0F766E' }}>
+                      {formatCurrency(results.requiredMonthlyIncrease)}
+                    </div>
+                    <div style={{ fontSize: '14px', color: '#6B7280' }}>
+                      aylık daha biriktirmeniz gerekiyor
+                    </div>
+                  </div>
+                )}
               </div>
-              <div style={{ fontSize: '32px', fontWeight: '700', color: '#1F2937', marginBottom: '8px' }}>
-                {results.years} yil {results.remainingMonths} ay
+            ) : (
+              <div style={{ backgroundColor: results.canAfford ? '#D1FAE5' : '#FEE2E2', borderRadius: '16px', padding: '24px', textAlign: 'center' }}>
+                <div style={{ fontSize: '14px', fontWeight: '600', color: results.canAfford ? '#059669' : '#DC2626', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  {results.canAfford ? 'Hedefe Ulasti!' : 'Hedef Devam Ediyor'}
+                </div>
+                <div style={{ fontSize: '32px', fontWeight: '700', color: '#1F2937', marginBottom: '8px' }}>
+                  {results.years} yil {results.remainingMonths} ay
+                </div>
+                <div style={{ fontSize: '14px', color: '#6B7280' }}>
+                  Hedef tarih: {results.targetDate}
+                </div>
               </div>
-              <div style={{ fontSize: '14px', color: '#6B7280' }}>
-                Hedef tarih: {results.targetDate}
-              </div>
-            </div>
+            )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
-              <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px', flexWrap: 'wrap' }}>
+              <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)', minWidth: 0 }}>
                 <div style={{ fontSize: '12px', fontWeight: '500', color: '#6B7280', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                   Son Birikim
                 </div>
-                <div style={{ fontSize: '20px', fontWeight: '600', color: '#1F2937' }}>
+                <div style={{ fontSize: '20px', fontWeight: '600', color: '#1F2937', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {formatCurrency(results.finalSavings)}
                 </div>
               </div>
 
-              <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
+              <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)', minWidth: 0 }}>
                 <div style={{ fontSize: '12px', fontWeight: '500', color: '#6B7280', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                   Son Ev Fiyati
                 </div>
-                <div style={{ fontSize: '20px', fontWeight: '600', color: '#1F2937' }}>
+                <div style={{ fontSize: '20px', fontWeight: '600', color: '#1F2937', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {formatCurrency(results.finalHousePrice)}
                 </div>
               </div>
 
-              <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
+              <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)', minWidth: 0 }}>
                 <div style={{ fontSize: '12px', fontWeight: '500', color: '#6B7280', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Gereken Toplam
+                  Kesen Kadar
                 </div>
-                <div style={{ fontSize: '20px', fontWeight: '600', color: '#1F2937' }}>
-                  {formatCurrency(results.finalTotal)}
+                <div style={{ fontSize: '20px', fontWeight: '600', color: results.surplusShortfall >= 0 ? '#059669' : '#DC2626', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {formatCurrency(Math.abs(results.surplusShortfall))}
                 </div>
               </div>
 
-              <div style={{ backgroundColor: results.surplusShortfall >= 0 ? '#D1FAE5' : '#FEE2E2', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
-                <div style={{ fontSize: '12px', fontWeight: '500', color: results.surplusShortfall >= 0 ? '#059669' : '#DC2626', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  {results.surplusShortfall >= 0 ? 'Fazla' : 'Eksi'}
+              <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)', minWidth: 0 }}>
+                <div style={{ fontSize: '12px', fontWeight: '500', color: '#6B7280', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Toplam Ay
                 </div>
-                <div style={{ fontSize: '20px', fontWeight: '600', color: results.surplusShortfall >= 0 ? '#059669' : '#DC2626' }}>
-                  {formatCurrency(Math.abs(results.surplusShortfall))}
+                <div style={{ fontSize: '20px', fontWeight: '600', color: '#1F2937', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {formatNumber(results.months)} ay
                 </div>
               </div>
             </div>
@@ -284,15 +403,25 @@ function App() {
                 <LineChart data={results.chartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                   <XAxis dataKey="year" stroke="#6B7280" tick={{ fontSize: 12 }} label={{ value: 'Yil', position: 'insideBottom', offset: -5 }} />
-                  <YAxis stroke="#6B7280" tick={{ fontSize: 12 }} tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`} label={{ value: 'Milyon TL', angle: -90, position: 'insideLeft' }} />
+                  <YAxis stroke="#6B7280" tick={{ fontSize: 12 }} tickFormatter={formatYAxis} label={{ value: 'TL', angle: -90, position: 'insideLeft' }} />
                   <Tooltip formatter={(value) => formatCurrency(value)} contentStyle={{ backgroundColor: 'white', border: '1px solid #E5E7EB', borderRadius: '8px', padding: '12px' }} />
+                  {results.canAfford && (
+                    <ReferenceLine x={results.years} stroke="#0F766E" strokeDasharray="3 3" label="Hedefe Ulasti" />
+                  )}
                   <Line type="monotone" dataKey="savings" stroke="#0F766E" strokeWidth={3} name="Birikim" dot={{ fill: "#0F766E", strokeWidth: 2 }} />
-                  <Line type="monotone" dataKey="totalRequired" stroke="#DC2626" strokeWidth={3} name="Gereken Toplam" strokeDasharray="5 5" dot={{ fill: "#DC2626", strokeWidth: 2 }} />
+                  <Line type="monotone" dataKey="housePrice" stroke="#DC2626" strokeWidth={3} name="Ev Fiyati" dot={{ fill: "#DC2626", strokeWidth: 2 }} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
           </div>
         )}
+
+        <style>{`
+          @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+          }
+        `}</style>
       </div>
     </div>
   )
