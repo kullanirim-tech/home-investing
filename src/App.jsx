@@ -12,6 +12,16 @@ function App() {
 
   const [results, setResults] = useState(null)
 
+  const loadExample = () => {
+    setInputs({
+      currentSavings: 300000,
+      monthlySavings: 20000,
+      monthlyReturn: 1.5,
+      housePrice: 4000000,
+      annualRealEstateGrowth: 15
+    })
+  }
+
   const handleChange = (e) => {
     setInputs({
       ...inputs,
@@ -77,6 +87,13 @@ function App() {
             <h2 className="text-2xl font-semibold text-orange-700 mb-6">Bilgileri Gir</h2>
 
             <div className="space-y-4">
+              <button
+                onClick={loadExample}
+                className="w-full bg-orange-200 hover:bg-orange-300 text-orange-800 font-medium py-2 px-4 rounded-lg transition-colors text-sm"
+              >
+                📝 Örnek Veriler Yükle
+              </button>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Mevcut Birikim (TL)

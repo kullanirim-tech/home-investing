@@ -1,16 +1,63 @@
-# React + Vite
+# 🏠 Home Investment Calculator
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Single Page React uygulaması ile ev alım hedefinizi planlayın.
 
-Currently, two official plugins are available:
+## Özellikler
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- ✅ **Grafiksel Görüntüleme** - Recharts ile beautiful line chart
+- ✅ **Detaylı Tablo** - Yıllık bazda birikim ve ev fiyatı karşılaştırması
+- ✅ **Tapu Masrafları** - Otomatik %4 hesaplama
+- ✅ **Responsive Tasarım** - Mobil ve masaüstü uyumlu
+- ✅ **Örnek Veriler** - Hızlı başlangıç için hazır senaryo
+- ✅ **Turuncu Tema** - Modern ve göz alıcı UI
 
-## React Compiler
+## Kullanım
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Kurulum
 
-## Expanding the ESLint configuration
+```bash
+npm install
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### Geliştirme
+
+```bash
+npm run dev
+```
+
+Uygulama `http://localhost:3000` adresinde açılacak.
+
+### Build
+
+```bash
+npm run build
+```
+
+## Teknolojiler
+
+- **React** - UI kütüphanesi
+- **Vite** - Build tool
+- **Tailwind CSS** - Styling
+- **Recharts** - Grafikler
+
+## Nasıl Çalışır?
+
+1. Mevcut birikiminizi ve aylık birikim miktarını girin
+2. Yatırım getirisi ve emlak artış oranlarını belirleyin
+3. Hedef ev fiyatını girin
+4. Hesapla butonuna basın
+5. Grafik ve tablo üzerinden detayları inceleyin
+
+## Örnek Senaryo
+
+- Mevcut Birikim: 300.000 TL
+- Aylık Birikim: 20.000 TL
+- Aylık Yatırım Getirisi: %1.5
+- Ev Fiyatı: 4.000.000 TL
+- Yıllık Emlak Artışı: %15
+
+**Sonuç:** Bu koşullarda evi yaklaşık 4.5 yıl sonra alabilirsiniz.
+
+---
+
+**Built with ❤️ by Orhan Claw**
