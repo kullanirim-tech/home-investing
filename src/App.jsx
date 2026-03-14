@@ -447,7 +447,7 @@ function App() {
                 <LineChart data={results.chartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                   <XAxis
-                    dataKey="label"
+                    dataKey="month"
                     stroke="#6B7280"
                     tick={{ fontSize: 12 }}
                     interval={getXAxisInterval()}
@@ -456,7 +456,7 @@ function App() {
                   <YAxis stroke="#6B7280" tick={{ fontSize: 12 }} tickFormatter={formatYAxis} label={{ value: 'TL', angle: -90, position: 'insideLeft' }} />
                   <Tooltip formatter={(value) => formatCurrency(value)} contentStyle={{ backgroundColor: 'white', border: '1px solid #E5E7EB', borderRadius: '8px', padding: '12px' }} />
                   {results.canAfford && (
-                    <ReferenceLine x={results.chartData[results.chartData.length - 1].label} stroke="#0F766E" strokeDasharray="3 3" label="Hedefe Ulasti" />
+                    <ReferenceLine x={results.chartData[results.chartData.length - 1].month} stroke="#0F766E" strokeDasharray="3 3" label="Hedefe Ulasti" />
                   )}
                   <Line type="monotone" dataKey="savings" stroke="#0F766E" strokeWidth={3} name="Birikim" dot={false} />
                   <Line type="monotone" dataKey="housePrice" stroke="#DC2626" strokeWidth={3} name="Ev Fiyati" dot={false} />
