@@ -10,6 +10,9 @@ Single Page React uygulaması ile ev alım hedefinizi planlayın.
 - ✅ **Responsive Tasarım** - Mobil ve masaüstü uyumlu
 - ✅ **Örnek Veriler** - Hızlı başlangıç için hazır senaryo
 - ✅ **Turuncu Tema** - Modern ve göz alıcı UI
+- ✅ **Input Formatlama** - TL alanları için binlik ayraç, % alanları için ondalık
+- ✅ **Persistent Storage** - window.storage API ile kayıt
+- ✅ **Toast Bildirimleri** - Kayıt sonrası bildirim
 
 ## Kullanım
 
@@ -37,6 +40,27 @@ Uygulama `http://localhost:3000` adresinde açılacak.
 npm run build
 ```
 
+### GitHub Pages'e Deploy Etme
+
+**Otomatik Yöntem (Önerilen):**
+
+1. GitHub repository'de **Settings → Pages**'e gidin
+2. **Source** altında:
+   - **Build and deployment** → "Deploy from a branch" seçin
+   - **Branch** → `gh-pages` seçin
+3. **Save** butonuna basın
+
+**Manuel Yöntem:**
+
+```bash
+# gh-pages branch'ine deploy et
+npm run build
+git checkout gh-pages
+git merge main --no-edit
+git push origin gh-pages
+git checkout main
+```
+
 ## Teknolojiler
 
 - **React** - UI kütüphanesi
@@ -61,6 +85,15 @@ npm run build
 - Yıllık Emlak Artışı: %15
 
 **Sonuç:** Bu koşullarda evi yaklaşık 4.5 yıl sonra alabilirsiniz.
+
+## Notlar
+
+- **Input Formatlama:**
+  - TL alanları: `12.000.000` (binlik ayraç ile)
+  - % alanları: `1.5` (ondalık, formatlama yok)
+- **Storage:** `window.storage` API kullanılır (localStorage DEĞİL)
+- **Grafik:** Tüm ayları gösterir (1, 2, 3...)
+- **Hesaplama:** Doğru yıllık'dan aylık'a dönüşüm (basit bölme yok)
 
 ---
 
