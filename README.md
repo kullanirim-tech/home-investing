@@ -13,6 +13,12 @@ Single Page React uygulaması ile ev alım hedefinizi planlayın.
 - ✅ **Input Formatlama** - TL alanları için binlik ayraç, % alanları için ondalık
 - ✅ **Persistent Storage** - window.storage API ile kayıt
 - ✅ **Toast Bildirimleri** - Kayıt sonrası bildirim
+- ✅ **🆕 Enflasyon Düzeltilmiş Gerçek Değer** - Nominal birikimin yanı sıra enflasyonla düzeltilmiş gerçek satın alma gücünü hesaplar
+- ✅ **🆕 Loan Calculator Karşılaştırma** - İki farklı yolun şık bir şekilde karşılaştırılması
+  - Sadece biriktirme yolu
+  - Kredi + fark yatırma yolu
+  - Her iki yolun yıllık özeti
+  - İki yolun ay bazlı karşılaştırma grafiği
 
 ## Kullanım
 
@@ -83,8 +89,19 @@ git checkout main
 - Aylık Yatırım Getirisi: %1.5
 - Ev Fiyatı: 4.000.000 TL
 - Yıllık Emlak Artışı: %15
+- Yıllık Enflasyon: %50
 
 **Sonuç:** Bu koşullarda evi yaklaşık 4.5 yıl sonra alabilirsiniz.
+
+## 💡 Enflasyon Düzeltilmiş Gerçek Değer
+
+Bu özellik sayesinde sadece **nominal** (kağıt üzerindeki) birikiminizi değil, **enflasyon düzeltilmiş gerçek satın alma gücünüzü** de görebilirsiniz:
+
+- **Nominal Birikim:** Yatırım getirisiyle artan birikiminiz
+- **Gerçek Birikim:** Enflasyonun etkisiyle düzeltilmiş satın alma gücünüz
+- Eğer nominal birikim > gerçek birikim ise, birikiminizin değer kaybettiğini anlar
+
+Bu özellik özellikle yüksek enflasyon ortamında kritik bir bilgidir — çünkü 1 milyon TL'nin değeri, yıllar sonra aynı değerde olmayabilir!
 
 ## Notlar
 
