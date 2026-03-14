@@ -36,20 +36,14 @@ function App() {
   }, [])
 
   const [inputs, setInputs] = useState({
-    currentSavings: '',
-    monthlySavings: '',
-    monthlyReturn: '',
-    housePrice: '',
-    annualRealEstateGrowth: '',
+    currentSavings: 0,
+    monthlySavings: 0,
+    monthlyReturn: 0,
+    housePrice: 0,
+    annualRealEstateGrowth: 0,
   })
 
-  const [inputValues, setInputValues] = useState({
-    currentSavings: '0',
-    monthlySavings: '0',
-    monthlyReturn: '0',
-    housePrice: '0',
-    annualRealEstateGrowth: '0',
-  })
+  const [focusedInput, setFocusedInput] = useState(null)
 
   const [results, setResults] = useState(null)
   const [isCalculating, setIsCalculating] = useState(false)
@@ -61,15 +55,26 @@ function App() {
     setSavedTimeout(timeout)
   }, [savedTimeout])
 
-  const handleInputChange = (name, value) => {
-    const rawValue = value.replace(/[^0-9.]/g, '')
-    const numericValue = rawValue === '' ? 0 : parseFloat(rawValue)
+  const handleInputChange = (e) => {
+    const name = e.target.name
+    let value = e.target.value
 
-    const newInputs = { ...inputs, [name]: numericValue }
-    setInputs(newInputs)
-    setInputValues({ ...inputValues, [name]: formatNumber(numericValue) })
+    value = value.replace(/[^0-9.]/g, '')
+
+    if (value === '') {
+      setInputs({ ...inputs, [name]: 0 })
+      return
+    }
+
+    const numericValue = parseFloat(value)
+    if (isNaN(numericValue)) {
+      return
+    }
+
+    setInputs({ ...inputs, [name]: numericValue })
 
     if (window.storage) {
+      const newInputs = { ...inputs, [name]: numericValue }
       if (savedTimeout) clearTimeout(savedTimeout)
       const timeout = setTimeout(async () => {
         try {
@@ -85,11 +90,18 @@ function App() {
   }
 
   const handleInputFocus = (name) => {
-    setInputValues({ ...inputValues, [name]: String(inputs[name]) })
+    setFocusedInput(name)
   }
 
   const handleInputBlur = (name) => {
-    setInputValues({ ...inputValues, [name]: formatNumber(inputs[name]) })
+    setFocusedInput(null)
+  }
+
+  const getDisplayValue = (name, value) => {
+    if (focusedInput === name) {
+      return value === 0 ? '' : String(value)
+    }
+    return formatNumber(value)
   }
 
   useEffect(() => {
@@ -98,13 +110,12 @@ function App() {
         const saved = await window.storage.get('evAlim_inputs')
         if (saved && saved.value) {
           const parsed = JSON.parse(saved.value)
-          setInputs(parsed)
-          setInputValues({
-            currentSavings: formatNumber(parsed.currentSavings || 0),
-            monthlySavings: formatNumber(parsed.monthlySavings || 0),
-            monthlyReturn: formatNumber(parsed.monthlyReturn || 0),
-            housePrice: formatNumber(parsed.housePrice || 0),
-            annualRealEstateGrowth: formatNumber(parsed.annualRealEstateGrowth || 0),
+          setInputs({
+            currentSavings: parsed.currentSavings || 0,
+            monthlySavings: parsed.monthlySavings || 0,
+            monthlyReturn: parsed.monthlyReturn || 0,
+            housePrice: parsed.housePrice || 0,
+            annualRealEstateGrowth: parsed.annualRealEstateGrowth || 0,
           })
         }
       } catch (e) {
@@ -119,20 +130,12 @@ function App() {
   }, [])
 
   const loadExample = () => {
-    const exampleInputs = {
+    setInputs({
       currentSavings: 300000,
       monthlySavings: 20000,
       monthlyReturn: 1.5,
       housePrice: 4000000,
       annualRealEstateGrowth: 15,
-    }
-    setInputs(exampleInputs)
-    setInputValues({
-      currentSavings: formatNumber(300000),
-      monthlySavings: formatNumber(20000),
-      monthlyReturn: formatNumber(1.5),
-      housePrice: formatNumber(4000000),
-      annualRealEstateGrowth: formatNumber(15),
     })
     setResults(null)
   }
@@ -144,13 +147,6 @@ function App() {
       monthlyReturn: 0,
       housePrice: 0,
       annualRealEstateGrowth: 0,
-    })
-    setInputValues({
-      currentSavings: '0',
-      monthlySavings: '0',
-      monthlyReturn: '0',
-      housePrice: '0',
-      annualRealEstateGrowth: '0',
     })
     setResults(null)
     if (window.storage) {
@@ -309,7 +305,7 @@ function App() {
                 </span>
                 Mevcut Birikim
               </label>
-              <input type="text" value={inputValues.currentSavings} onChange={(e) => handleInputChange('currentSavings', e.target.value)} onFocus={() => handleInputFocus('currentSavings')} onBlur={() => handleInputBlur('currentSavings')} placeholder="0" style={{ width: '100%', height: '48px', padding: '12px 16px', fontSize: '16px', border: '1px solid #E5E7EB', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }} />
+              <input type="text" name="currentSavings" value={getDisplayValue('currentSavings', inputs.currentSavings)} onChange={handleInputChange} onFocus={() => handleInputFocus('currentSavings')} onBlur={() => handleInputBlur('currentSavings')} placeholder="0" style={{ width: '100%', height: '48px', padding: '12px 16px', fontSize: '16px', border: '1px solid #E5E7EB', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }} />
             </div>
 
             <div>
@@ -319,7 +315,7 @@ function App() {
                 </span>
                 Aylık Birikim
               </label>
-              <input type="text" value={inputValues.monthlySavings} onChange={(e) => handleInputChange('monthlySavings', e.target.value)} onFocus={() => handleInputFocus('monthlySavings')} onBlur={() => handleInputBlur('monthlySavings')} placeholder="0" style={{ width: '100%', height: '48px', padding: '12px 16px', fontSize: '16px', border: '1px solid #E5E7EB', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }} />
+              <input type="text" name="monthlySavings" value={getDisplayValue('monthlySavings', inputs.monthlySavings)} onChange={handleInputChange} onFocus={() => handleInputFocus('monthlySavings')} onBlur={() => handleInputBlur('monthlySavings')} placeholder="0" style={{ width: '100%', height: '48px', padding: '12px 16px', fontSize: '16px', border: '1px solid #E5E7EB', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }} />
             </div>
 
             <div>
@@ -329,7 +325,7 @@ function App() {
                 </span>
                 Aylık Yatırım Getirisi (%)
               </label>
-              <input type="text" value={inputValues.monthlyReturn} onChange={(e) => handleInputChange('monthlyReturn', e.target.value)} onFocus={() => handleInputFocus('monthlyReturn')} onBlur={() => handleInputBlur('monthlyReturn')} placeholder="0" style={{ width: '100%', height: '48px', padding: '12px 16px', fontSize: '16px', border: '1px solid #E5E7EB', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }} />
+              <input type="text" name="monthlyReturn" value={getDisplayValue('monthlyReturn', inputs.monthlyReturn)} onChange={handleInputChange} onFocus={() => handleInputFocus('monthlyReturn')} onBlur={() => handleInputBlur('monthlyReturn')} placeholder="0" style={{ width: '100%', height: '48px', padding: '12px 16px', fontSize: '16px', border: '1px solid #E5E7EB', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }} />
             </div>
 
             <div>
@@ -339,7 +335,7 @@ function App() {
                 </span>
                 Evin Fiyatı
               </label>
-              <input type="text" value={inputValues.housePrice} onChange={(e) => handleInputChange('housePrice', e.target.value)} onFocus={() => handleInputFocus('housePrice')} onBlur={() => handleInputBlur('housePrice')} placeholder="0" style={{ width: '100%', height: '48px', padding: '12px 16px', fontSize: '16px', border: '1px solid #E5E7EB', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }} />
+              <input type="text" name="housePrice" value={getDisplayValue('housePrice', inputs.housePrice)} onChange={handleInputChange} onFocus={() => handleInputFocus('housePrice')} onBlur={() => handleInputBlur('housePrice')} placeholder="0" style={{ width: '100%', height: '48px', padding: '12px 16px', fontSize: '16px', border: '1px solid #E5E7EB', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }} />
             </div>
 
             <div>
@@ -349,7 +345,7 @@ function App() {
                 </span>
                 Yıllık Emlak Artışı (%)
               </label>
-              <input type="text" value={inputValues.annualRealEstateGrowth} onChange={(e) => handleInputChange('annualRealEstateGrowth', e.target.value)} onFocus={() => handleInputFocus('annualRealEstateGrowth')} onBlur={() => handleInputBlur('annualRealEstateGrowth')} placeholder="0" style={{ width: '100%', height: '48px', padding: '12px 16px', fontSize: '16px', border: '1px solid #E5E7EB', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }} />
+              <input type="text" name="annualRealEstateGrowth" value={getDisplayValue('annualRealEstateGrowth', inputs.annualRealEstateGrowth)} onChange={handleInputChange} onFocus={() => handleInputFocus('annualRealEstateGrowth')} onBlur={() => handleInputBlur('annualRealEstateGrowth')} placeholder="0" style={{ width: '100%', height: '48px', padding: '12px 16px', fontSize: '16px', border: '1px solid #E5E7EB', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }} />
             </div>
 
             <button onClick={calculatePlan} disabled={isCalculating} style={{ width: '100%', height: '52px', backgroundColor: '#0F766E', color: 'white', border: 'none', borderRadius: '8px', fontSize: '18px', fontWeight: '600', cursor: isCalculating ? 'not-allowed' : 'pointer', opacity: isCalculating ? '0.7' : '1', marginTop: '8px' }}>
@@ -426,7 +422,7 @@ function App() {
 
               <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)', minWidth: 0 }}>
                 <div style={{ fontSize: '12px', fontWeight: '500', color: '#6B7280', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  {results.surplusShortfall >= 0 ? 'Birikim Fazlasi' : 'Açik'}
+                  {results.surplusShortfall >= 0 ? 'Birikim Fazlasi' : 'Acik'}
                 </div>
                 <div style={{ fontSize: '20px', fontWeight: '600', color: results.surplusShortfall >= 0 ? '#059669' : '#DC2626', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {formatCurrency(Math.abs(results.surplusShortfall))}
