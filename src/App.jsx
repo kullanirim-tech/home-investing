@@ -55,11 +55,10 @@ function App() {
     setSavedTimeout(timeout)
   }, [savedTimeout])
 
-  const handleInputChange = (e) => {
-    const name = e.target.name
+  const handleCurrencyInputChange = (e, name) => {
     let value = e.target.value
 
-    value = value.replace(/[^0-9.]/g, '')
+    value = value.replace(/[^0-9]/g, '')
 
     if (value === '') {
       setInputs({ ...inputs, [name]: 0 })
@@ -72,9 +71,33 @@ function App() {
     }
 
     setInputs({ ...inputs, [name]: numericValue })
+    debouncedSave(numericValue, name)
+  }
 
+  const handlePercentageInputChange = (e, name) => {
+    let value = e.target.value
+
+    value = value.replace(/[^0-9.,]/g, '')
+
+    if (value === '' || value === '.') {
+      setInputs({ ...inputs, [name]: 0 })
+      return
+    }
+
+    const normalizedValue = value.replace(',', '.')
+    const numericValue = parseFloat(normalizedValue)
+
+    if (isNaN(numericValue)) {
+      return
+    }
+
+    setInputs({ ...inputs, [name]: numericValue })
+    debouncedSave(numericValue, name)
+  }
+
+  const debouncedSave = useCallback((value, name) => {
     if (window.storage) {
-      const newInputs = { ...inputs, [name]: numericValue }
+      const newInputs = { ...inputs, [name]: value }
       if (savedTimeout) clearTimeout(savedTimeout)
       const timeout = setTimeout(async () => {
         try {
@@ -87,7 +110,7 @@ function App() {
       }, 500)
       saveTimeoutRef(timeout)
     }
-  }
+  }, [inputs, savedTimeout])
 
   const handleInputFocus = (name) => {
     setFocusedInput(name)
@@ -97,11 +120,18 @@ function App() {
     setFocusedInput(null)
   }
 
-  const getDisplayValue = (name, value) => {
+  const getCurrencyDisplayValue = (name, value) => {
     if (focusedInput === name) {
       return value === 0 ? '' : String(value)
     }
     return formatNumber(value)
+  }
+
+  const getPercentageDisplayValue = (name, value) => {
+    if (focusedInput === name) {
+      return value === 0 ? '' : String(value)
+    }
+    return String(value)
   }
 
   useEffect(() => {
@@ -209,34 +239,31 @@ function App() {
       let price = housePrice
       const chartData = []
       const maxMonths = 480
-      let month = 0
+      let totalMonths = 0
 
-      const today = new Date()
-      const monthNames = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara']
+      for (let month = 1; month <= maxMonths; month++) {
+        savings = savings * (1 + monthlyInvestmentRate) + monthlySavings
+        price = price * (1 + monthlyHouseRate)
 
-      while (month < maxMonths) {
         chartData.push({
-          month: month + 1,
-          label: `${monthNames[(today.getMonth() + month) % 12]} ${today.getFullYear() + Math.floor((today.getMonth() + month) / 12)}`,
-          savings: Math.round(savings),
-          housePrice: Math.round(price),
+          ay: month,
+          birikim: Math.round(savings),
+          evFiyati: Math.round(price),
         })
 
         if (savings >= price) {
+          totalMonths = month
           break
         }
-
-        savings = savings * (1 + monthlyInvestmentRate) + monthlySavings
-        price = price * (1 + monthlyHouseRate)
-        month++
       }
 
-      const canAfford = savings >= price
-      const years = Math.floor(month / 12)
-      const remainingMonths = month % 12
+      const canAfford = totalMonths > 0
+      const years = Math.floor(totalMonths / 12)
+      const remainingMonths = totalMonths % 12
 
+      const today = new Date()
       const targetDate = new Date(today)
-      targetDate.setMonth(targetDate.getMonth() + month)
+      targetDate.setMonth(targetDate.getMonth() + totalMonths)
 
       let requiredMonthlyIncrease = null
       let isImpossible = false
@@ -249,7 +276,7 @@ function App() {
       }
 
       setResults({
-        months: month + 1,
+        months: totalMonths,
         years,
         remainingMonths,
         targetDate: targetDate.toLocaleDateString('tr-TR', { year: 'numeric', month: 'long' }),
@@ -267,7 +294,7 @@ function App() {
   }
 
   const getXAxisInterval = () => {
-    return results && results.months > 60 ? 6 : 1
+    return results && results.months > 24 ? 3 : 1
   }
 
   return (
@@ -305,7 +332,7 @@ function App() {
                 </span>
                 Mevcut Birikim
               </label>
-              <input type="text" name="currentSavings" value={getDisplayValue('currentSavings', inputs.currentSavings)} onChange={handleInputChange} onFocus={() => handleInputFocus('currentSavings')} onBlur={() => handleInputBlur('currentSavings')} placeholder="0" style={{ width: '100%', height: '48px', padding: '12px 16px', fontSize: '16px', border: '1px solid #E5E7EB', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }} />
+              <input type="text" value={getCurrencyDisplayValue('currentSavings', inputs.currentSavings)} onChange={(e) => handleCurrencyInputChange(e, 'currentSavings')} onFocus={() => handleInputFocus('currentSavings')} onBlur={() => handleInputBlur('currentSavings')} placeholder="0" style={{ width: '100%', height: '48px', padding: '12px 16px', fontSize: '16px', border: '1px solid #E5E7EB', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }} />
             </div>
 
             <div>
@@ -315,7 +342,7 @@ function App() {
                 </span>
                 Aylık Birikim
               </label>
-              <input type="text" name="monthlySavings" value={getDisplayValue('monthlySavings', inputs.monthlySavings)} onChange={handleInputChange} onFocus={() => handleInputFocus('monthlySavings')} onBlur={() => handleInputBlur('monthlySavings')} placeholder="0" style={{ width: '100%', height: '48px', padding: '12px 16px', fontSize: '16px', border: '1px solid #E5E7EB', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }} />
+              <input type="text" value={getCurrencyDisplayValue('monthlySavings', inputs.monthlySavings)} onChange={(e) => handleCurrencyInputChange(e, 'monthlySavings')} onFocus={() => handleInputFocus('monthlySavings')} onBlur={() => handleInputBlur('monthlySavings')} placeholder="0" style={{ width: '100%', height: '48px', padding: '12px 16px', fontSize: '16px', border: '1px solid #E5E7EB', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }} />
             </div>
 
             <div>
@@ -325,7 +352,7 @@ function App() {
                 </span>
                 Aylık Yatırım Getirisi (%)
               </label>
-              <input type="text" name="monthlyReturn" value={getDisplayValue('monthlyReturn', inputs.monthlyReturn)} onChange={handleInputChange} onFocus={() => handleInputFocus('monthlyReturn')} onBlur={() => handleInputBlur('monthlyReturn')} placeholder="0" style={{ width: '100%', height: '48px', padding: '12px 16px', fontSize: '16px', border: '1px solid #E5E7EB', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }} />
+              <input type="text" value={getPercentageDisplayValue('monthlyReturn', inputs.monthlyReturn)} onChange={(e) => handlePercentageInputChange(e, 'monthlyReturn')} onFocus={() => handleInputFocus('monthlyReturn')} onBlur={() => handleInputBlur('monthlyReturn')} placeholder="0" style={{ width: '100%', height: '48px', padding: '12px 16px', fontSize: '16px', border: '1px solid #E5E7EB', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }} />
             </div>
 
             <div>
@@ -335,7 +362,7 @@ function App() {
                 </span>
                 Evin Fiyatı
               </label>
-              <input type="text" name="housePrice" value={getDisplayValue('housePrice', inputs.housePrice)} onChange={handleInputChange} onFocus={() => handleInputFocus('housePrice')} onBlur={() => handleInputBlur('housePrice')} placeholder="0" style={{ width: '100%', height: '48px', padding: '12px 16px', fontSize: '16px', border: '1px solid #E5E7EB', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }} />
+              <input type="text" value={getCurrencyDisplayValue('housePrice', inputs.housePrice)} onChange={(e) => handleCurrencyInputChange(e, 'housePrice')} onFocus={() => handleInputFocus('housePrice')} onBlur={() => handleInputBlur('housePrice')} placeholder="0" style={{ width: '100%', height: '48px', padding: '12px 16px', fontSize: '16px', border: '1px solid #E5E7EB', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }} />
             </div>
 
             <div>
@@ -345,7 +372,7 @@ function App() {
                 </span>
                 Yıllık Emlak Artışı (%)
               </label>
-              <input type="text" name="annualRealEstateGrowth" value={getDisplayValue('annualRealEstateGrowth', inputs.annualRealEstateGrowth)} onChange={handleInputChange} onFocus={() => handleInputFocus('annualRealEstateGrowth')} onBlur={() => handleInputBlur('annualRealEstateGrowth')} placeholder="0" style={{ width: '100%', height: '48px', padding: '12px 16px', fontSize: '16px', border: '1px solid #E5E7EB', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }} />
+              <input type="text" value={getPercentageDisplayValue('annualRealEstateGrowth', inputs.annualRealEstateGrowth)} onChange={(e) => handlePercentageInputChange(e, 'annualRealEstateGrowth')} onFocus={() => handleInputFocus('annualRealEstateGrowth')} onBlur={() => handleInputBlur('annualRealEstateGrowth')} placeholder="0" style={{ width: '100%', height: '48px', padding: '12px 16px', fontSize: '16px', border: '1px solid #E5E7EB', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }} />
             </div>
 
             <button onClick={calculatePlan} disabled={isCalculating} style={{ width: '100%', height: '52px', backgroundColor: '#0F766E', color: 'white', border: 'none', borderRadius: '8px', fontSize: '18px', fontWeight: '600', cursor: isCalculating ? 'not-allowed' : 'pointer', opacity: isCalculating ? '0.7' : '1', marginTop: '8px' }}>
@@ -447,7 +474,7 @@ function App() {
                 <LineChart data={results.chartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                   <XAxis
-                    dataKey="month"
+                    dataKey="ay"
                     stroke="#6B7280"
                     tick={{ fontSize: 12 }}
                     interval={getXAxisInterval()}
@@ -456,20 +483,10 @@ function App() {
                   <YAxis stroke="#6B7280" tick={{ fontSize: 12 }} tickFormatter={formatYAxis} label={{ value: 'TL', angle: -90, position: 'insideLeft' }} />
                   <Tooltip formatter={(value) => formatCurrency(value)} contentStyle={{ backgroundColor: 'white', border: '1px solid #E5E7EB', borderRadius: '8px', padding: '12px' }} />
                   {results.canAfford && (
-                    <ReferenceLine x={results.chartData[results.chartData.length - 1].month} stroke="#0F766E" strokeDasharray="3 3" label="Hedefe Ulasti" />
+                    <ReferenceLine x={results.chartData[results.chartData.length - 1].ay} stroke="#0F766E" strokeDasharray="3 3" label="Hedefe Ulasti" />
                   )}
-                  <Line type="monotone" dataKey="savings" stroke="#0F766E" strokeWidth={3} name="Birikim" dot={false} />
-                  <Line type="monotone" dataKey="housePrice" stroke="#DC2626" strokeWidth={3} name="Ev Fiyati" dot={false} />
-                  {results.canAfford && (
-                    <Line
-                      type="monotone"
-                      data={[results.chartData[results.chartData.length - 1]]}
-                      stroke="#0F766E"
-                      strokeWidth={0}
-                      name="Kesisim"
-                      dot={{ fill: "#0F766E", strokeWidth: 2, r: 6 }}
-                    />
-                  )}
+                  <Line type="monotone" dataKey="birikim" stroke="#0F766E" strokeWidth={3} name="Birikim" dot={false} />
+                  <Line type="monotone" dataKey="evFiyati" stroke="#DC2626" strokeWidth={3} name="Ev Fiyati" dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
