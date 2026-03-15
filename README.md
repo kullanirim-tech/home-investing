@@ -13,7 +13,8 @@ Single Page React uygulaması ile ev alım hedefinizi planlayın.
 - ✅ **Input Formatlama** - TL alanları için binlik ayraç, % alanları için ondalık
 - ✅ **Persistent Storage** - window.storage API ile kayıt
 - ✅ **Toast Bildirimleri** - Kayıt sonrası bildirim
-- ✅ **🆕 Enflasyon Düzeltilmiş Gerçek Değer** - Nominal birikimin yanı sıra enflasyonla düzeltilmiş gerçek satın alma gücünü hesaplar
+- ✅ **Enflasyon Düzeltilmiş Gerçek Değer** - Nominal birikimin yanı sıra enflasyonla düzeltilmiş gerçek satın alma gücünü hesaplar
+- ✅ **🆕 Loan Calculator Karşılaştırma** - Sadece biriktirme vs Kredi + Yatırım karşılaştırması
 - ✅ **🆕 Loan Calculator Karşılaştırma** - İki farklı yolun şık bir şekilde karşılaştırılması
   - Sadece biriktirme yolu
   - Kredi + fark yatırma yolu
@@ -102,6 +103,38 @@ Bu özellik sayesinde sadece **nominal** (kağıt üzerindeki) birikiminizi değ
 - Eğer nominal birikim > gerçek birikim ise, birikiminizin değer kaybettiğini anlar
 
 Bu özellik özellikle yüksek enflasyon ortamında kritik bir bilgidir — çünkü 1 milyon TL'nin değeri, yıllar sonra aynı değerde olmayabilir!
+
+## 🔥 Loan Calculator Karşılaştırma
+
+Bir ev alım planlarken **sadece biriktirmek mi**, yoksa **kredi alıp farkı yatırma mı** daha mantıklı? Artık ikisini de görebilirsiniz!
+
+### 🎯 İki Yol Karşılaştırması
+
+**1. Sadece Biriktirme Yolu:**
+- Tüm aylık birikiminizi ev için tutarsınız
+- Yatırım getirisi ile birikim artar
+- Ev fiyatına ulaşınca alırsınız
+
+**2. Kredi + Yatırım Yolu:**
+- Krediyi alırsınız
+- Her ay kredi taksidini ödersiniz
+- Aylık birikiminizden kalan kısmı yatırırsınız
+- Kredi bittiğinde yatırılmış paranız olur
+
+### 📊 Özellikler
+
+- **Akıllı Öneri Sistemi:** Uygulama otomatik olarak hangi yolun daha avantajlı olduğunu gösterir
+- **Aylık Grafik:** Her iki yolun ay bazlı karşılaştırması (nominal ve gerçek değerler)
+- **Yıllık Özet:** 5, 10, 15, 20, 30 yılın sonuçlarını gösteren bar grafik
+- **İlk Eşleşme Noktası:** Kredi yolunun evi alabileceği ilk ayı vurgular
+
+### 💡 Neden Önemli?
+
+Bu özellik, **yüksek enflasyon** ve **yüksek kredi faizleri** ortamında kritik bir yardımcıdır:
+
+1. **Gerçekçi Karşılaştırma:** Kağıt üzerinde kredi "pahalı" görünebilir, ama gerçek yatırım avantajı muhtemelen daha yüksek
+2. **Geri Dönüşümsüz Kararlar:** Ev alırken son kararı rasyonel almak için bu karşılaştırma şart
+3. **Uzun Vadeli Bakış:** 30 yıllık piyasa dinamiklerini görürsünüz
 
 ## Notlar
 
