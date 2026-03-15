@@ -47,6 +47,7 @@ function App() {
   })
 
   const [focusedInput, setFocusedInput] = useState(null)
+  const [rawInputValues, setRawInputValues] = useState({})
 
   const [results, setResults] = useState(null)
   const [isCalculating, setIsCalculating] = useState(false)
@@ -80,7 +81,11 @@ function App() {
   const handlePercentageInputChange = (e, name) => {
     let value = e.target.value
 
+    // Virgülü koru, diğer karakterleri sil
     value = value.replace(/[^0-9.,]/g, '')
+
+    // Raw input değerini güncelle
+    setRawInputValues({ ...rawInputValues, [name]: value })
 
     if (value === '' || value === '.') {
       setInputs({ ...inputs, [name]: 0 })
@@ -123,10 +128,19 @@ function App() {
 
   const handleInputFocus = (name) => {
     setFocusedInput(name)
+    // Fokuslandığında raw input değerini güncelle
+    const value = inputs[name]
+    if (value !== 0) {
+      setRawInputValues({ ...rawInputValues, [name]: String(value).replace('.', ',') })
+    } else {
+      setRawInputValues({ ...rawInputValues, [name]: '' })
+    }
   }
 
   const handleInputBlur = (name) => {
     setFocusedInput(null)
+    // Blur durumunda raw input değerini temizle
+    setRawInputValues({ ...rawInputValues, [name]: undefined })
   }
 
   const getCurrencyDisplayValue = (name, value) => {
@@ -138,7 +152,7 @@ function App() {
 
   const getPercentageDisplayValue = (name, value) => {
     if (focusedInput === name) {
-      return value === 0 ? '' : String(value)
+      return rawInputValues[name] !== undefined ? rawInputValues[name] : (value === 0 ? '' : String(value))
     }
     return value.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
   }
