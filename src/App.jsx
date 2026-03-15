@@ -506,7 +506,7 @@ function App() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: '#374151', marginBottom: '4px' }}>
-                    Kredi Faiz Oranı (%)
+                    Kredi Faiz Oranı (% Yıllık)
                   </label>
                   <input type="text" value={getPercentageDisplayValue('loanInterest', inputs.loanInterest)} onChange={(e) => handlePercentageInputChange(e, 'loanInterest')} onFocus={() => handleInputFocus('loanInterest')} onBlur={() => handleInputBlur('loanInterest')} placeholder="0" style={{ width: '100%', height: '40px', padding: '8px 12px', fontSize: '14px', border: '1px solid #E5E7EB', borderRadius: '6px', outline: 'none', boxSizing: 'border-box' }} />
                 </div>
