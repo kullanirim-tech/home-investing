@@ -42,11 +42,8 @@ function App() {
     housePrice: 0,
     annualRealEstateGrowth: 0,
     annualInflationRate: 0,
-    loanAmount: 0,
     loanInterest: 0,
     loanYears: 30,
-    monthlyPayment: 0,
-    monthlyInvestment: 0,
   })
 
   const [focusedInput, setFocusedInput] = useState(null)
@@ -166,11 +163,8 @@ function App() {
             housePrice: parsed.housePrice || 0,
             annualRealEstateGrowth: parsed.annualRealEstateGrowth || 0,
             annualInflationRate: parsed.annualInflationRate || 0,
-            loanAmount: parsed.loanAmount || 0,
             loanInterest: parsed.loanInterest || 0,
             loanYears: parsed.loanYears || 30,
-            monthlyPayment: parsed.monthlyPayment || 0,
-            monthlyInvestment: parsed.monthlyInvestment || 0,
           })
         }
       } catch (e) {
@@ -192,11 +186,8 @@ function App() {
       housePrice: 4000000,
       annualRealEstateGrowth: 15,
       annualInflationRate: 50,
-      loanAmount: 2000000,
       loanInterest: 16.5,
       loanYears: 30,
-      monthlyPayment: 36852,
-      monthlyInvestment: 16852,
     })
     setResults(null)
   }
@@ -209,11 +200,8 @@ function App() {
       housePrice: 0,
       annualRealEstateGrowth: 0,
       annualInflationRate: 0,
-      loanAmount: 0,
       loanInterest: 0,
       loanYears: 30,
-      monthlyPayment: 0,
-      monthlyInvestment: 0,
     })
     setResults(null)
     if (window.storage) {
@@ -291,49 +279,60 @@ function App() {
     }
   }
 
-  const calculateLoanPath = (currentSavings, monthlySavings, monthlyReturn, housePrice, annualRealEstateGrowth, annualInflationRate, loanAmount, monthlyPayment, monthlyInvestment, loanYears) => {
+  const calculateLoanPath = (currentSavings, monthlySavings, monthlyReturn, housePrice, annualRealEstateGrowth, annualInflationRate, loanInterest, loanYears) => {
     const monthlyInvestmentRate = monthlyReturn / 100
     const monthlyHouseRate = Math.pow(1 + annualRealEstateGrowth / 100, 1/12) - 1
     const monthlyInflationRate = Math.pow(1 + annualInflationRate / 100, 1/12) - 1
     const realMonthlyReturn = ((1 + monthlyInvestmentRate) / (1 + monthlyInflationRate)) - 1
 
-    let equity = currentSavings
-    let realEquity = currentSavings
+    const loanAmount = Math.max(0, housePrice - currentSavings)
+    const monthlyPayment = calculateLoan(loanAmount, loanInterest, loanYears)
+
+    let remainingLoan = loanAmount
     let investment = 0
     let totalPaid = 0
     const chartData = []
-    const maxMonths = 480
+    const maxMonths = loanYears * 12
 
     for (let month = 1; month <= maxMonths; month++) {
-      equity = Math.max(0, equity - monthlyPayment)
-      investment = investment * (1 + monthlyInvestmentRate) + monthlyInvestment
+      const interestPayment = remainingLoan * (loanInterest / 100 / 12)
+      const principalPayment = Math.min(monthlyPayment - interestPayment, remainingLoan)
+      remainingLoan = Math.max(0, remainingLoan - principalPayment)
+      totalPaid += monthlyPayment
 
-      const totalValue = equity + investment
+      const availableForInvestment = monthlySavings - monthlyPayment
+      if (availableForInvestment > 0) {
+        investment = investment * (1 + monthlyInvestmentRate) + availableForInvestment
+      }
+
+      const totalValue = investment + Math.max(0, currentSavings - loanAmount)
       const monthlySavingsRealValue = monthlySavings / Math.pow(1 + monthlyInflationRate, month - 1)
-      realEquity = realEquity * (1 + realMonthlyReturn) + monthlySavingsRealValue
+      const realEquity = (totalValue / Math.pow(1 + monthlyInflationRate, month - 1))
 
       chartData.push({
         ay: month,
         path: 'loan',
         birikim: Math.round(totalValue),
         gercekBirikim: Math.round(realEquity),
-        evFiyati: Math.round(housePrice),
+        evFiyati: Math.round(housePrice * Math.pow(1 + monthlyHouseRate, month)),
       })
     }
 
     const today = new Date()
     const targetDate = new Date(today)
-    targetDate.setMonth(targetDate.getMonth() + loanYears * 12)
+    targetDate.setMonth(targetDate.getMonth() + maxMonths)
 
     return {
-      months: loanYears * 12,
+      months: maxMonths,
       years: loanYears,
       remainingMonths: 0,
       targetDate: targetDate.toLocaleDateString('tr-TR', { year: 'numeric', month: 'long' }),
-      finalSavings: Math.round(equity),
-      finalRealSavings: Math.round(realEquity),
-      finalHousePrice: Math.round(housePrice),
-      totalInvested: Math.round(monthlyInvestment * loanYears * 12),
+      finalSavings: Math.round(chartData[chartData.length - 1].birikim),
+      finalRealSavings: Math.round(chartData[chartData.length - 1].gercekBirikim),
+      finalHousePrice: Math.round(chartData[chartData.length - 1].evFiyati),
+      loanAmount: Math.round(loanAmount),
+      monthlyPayment: Math.round(monthlyPayment),
+      totalInvested: Math.round(investment),
       totalPaid: Math.round(totalPaid),
       chartData,
     }
@@ -349,21 +348,12 @@ function App() {
       const housePrice = parseFloat(inputs.housePrice) || 0
       const annualRealEstateGrowth = parseFloat(inputs.annualRealEstateGrowth) || 0
       const annualInflationRate = parseFloat(inputs.annualInflationRate) || 0
-      const loanAmount = parseFloat(inputs.loanAmount) || 0
       const loanInterest = parseFloat(inputs.loanInterest) || 0
       const loanYears = parseInt(inputs.loanYears) || 30
-      const monthlyPayment = parseFloat(inputs.monthlyPayment) || 0
-      const monthlyInvestment = parseFloat(inputs.monthlyInvestment) || 0
 
       if (housePrice <= 0) {
         setIsCalculating(false)
         alert('Lutfen gecerli bir ev fiyati girin')
-        return
-      }
-
-      if (monthlyPayment > 0 && (monthlySavings > monthlyPayment)) {
-        alert('Aylık biriktirme miktarı, kredi taksitinden büyük olamaz! Kredi taksidi krediden önce ödenmeli.')
-        setIsCalculating(false)
         return
       }
 
@@ -383,21 +373,14 @@ function App() {
         housePrice,
         annualRealEstateGrowth,
         annualInflationRate,
-        loanAmount,
-        monthlyPayment,
-        monthlyInvestment,
+        loanInterest,
         loanYears
       )
-
-      // Find the comparison point (first month where loan path has equity + investment >= house price)
-      const comparisonIndex = loanPath.chartData.findIndex(d => d.birikim >= d.evFiyati)
-      const comparisonMonth = comparisonIndex >= 0 ? comparisonIndex + 1 : null
 
       setResults({
         savingsPath,
         loanPath,
-        comparisonMonth,
-        isLoanRecommended: savingsPath.finalSavings < loanPath.finalSavings && (loanAmount > 0 && monthlyPayment > 0),
+        isLoanRecommended: savingsPath.finalSavings < loanPath.finalSavings,
       })
 
       setIsCalculating(false)
@@ -502,51 +485,43 @@ function App() {
                   🏦 Kredi Yolu İle Karşılaştırma
                 </h3>
                 <span style={{ fontSize: '12px', color: '#6B7280' }}>
-                  Kredi seçilmezse bu alan gösterilmez
+                  Kredi miktarı otomatik hesaplanır
                 </span>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: '#374151', marginBottom: '4px' }}>
-                    Kredi Miktarı
-                  </label>
-                  <input type="text" value={getCurrencyDisplayValue('loanAmount', inputs.loanAmount)} onChange={(e) => handleCurrencyInputChange(e, 'loanAmount')} onFocus={() => handleInputFocus('loanAmount')} onBlur={() => handleInputBlur('loanAmount')} placeholder="0" style={{ width: '100%', height: '40px', padding: '8px 12px', fontSize: '14px', border: '1px solid #E5E7EB', borderRadius: '6px', outline: 'none', boxSizing: 'border-box' }} />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: '#374151', marginBottom: '4px' }}>
                     Kredi Faiz Oranı (%)
                   </label>
                   <input type="text" value={getPercentageDisplayValue('loanInterest', inputs.loanInterest)} onChange={(e) => handlePercentageInputChange(e, 'loanInterest')} onFocus={() => handleInputFocus('loanInterest')} onBlur={() => handleInputBlur('loanInterest')} placeholder="0" style={{ width: '100%', height: '40px', padding: '8px 12px', fontSize: '14px', border: '1px solid #E5E7EB', borderRadius: '6px', outline: 'none', boxSizing: 'border-box' }} />
                 </div>
-              </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: '#374151', marginBottom: '4px' }}>
                     Kredi Süresi (Yıl)
                   </label>
                   <input type="number" value={getNumberDisplayValue('loanYears', inputs.loanYears)} onChange={(e) => handleNumberInputChange(e, 'loanYears')} onFocus={() => handleInputFocus('loanYears')} onBlur={() => handleInputBlur('loanYears')} min="1" max="35" style={{ width: '100%', height: '40px', padding: '8px 12px', fontSize: '14px', border: '1px solid #E5E7EB', borderRadius: '6px', outline: 'none', boxSizing: 'border-box' }} />
                 </div>
+              </div>
 
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: '#374151', marginBottom: '4px' }}>
-                    Kredi Taksidi
-                  </label>
-                  <input type="text" value={getCurrencyDisplayValue('monthlyPayment', inputs.monthlyPayment)} onChange={(e) => handleCurrencyInputChange(e, 'monthlyPayment')} onFocus={() => handleInputFocus('monthlyPayment')} onBlur={() => handleInputBlur('monthlyPayment')} placeholder="Otomatik" style={{ width: '100%', height: '40px', padding: '8px 12px', fontSize: '14px', border: '1px solid #E5E7EB', borderRadius: '6px', outline: 'none', boxSizing: 'border-box' }} />
+              {results && results.loanPath && (
+                <div style={{ backgroundColor: '#F3F4F6', borderRadius: '8px', padding: '12px', marginBottom: '16px' }}>
+                  <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '8px' }}>
+                    📊 Hesaplanan Değerler
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#9CA3AF' }}>Kredi Miktarı</div>
+                      <div style={{ fontSize: '14px', fontWeight: '600', color: '#1F2937' }}>{formatCurrency(results.loanPath.loanAmount)}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#9CA3AF' }}>Aylık Taksit</div>
+                      <div style={{ fontSize: '14px', fontWeight: '600', color: '#1F2937' }}>{formatCurrency(results.loanPath.monthlyPayment)}</div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: '#374151', marginBottom: '4px' }}>
-                  <span style={{ display: 'inline-block', backgroundColor: '#0F766E', color: 'white', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', marginRight: '8px' }}>
-                    Fark Yatırımı
-                  </span>
-                  Aylık Taksit'ten Fazla Yatırılacak Miktar
-                </label>
-                <input type="text" value={getCurrencyDisplayValue('monthlyInvestment', inputs.monthlyInvestment)} onChange={(e) => handleCurrencyInputChange(e, 'monthlyInvestment')} onFocus={() => handleInputFocus('monthlyInvestment')} onBlur={() => handleInputBlur('monthlyInvestment')} placeholder="0" style={{ width: '100%', height: '40px', padding: '8px 12px', fontSize: '14px', border: '1px solid #E5E7EB', borderRadius: '6px', outline: 'none', boxSizing: 'border-box' }} />
-              </div>
+              )}
             </div>
 
             <button onClick={comparePaths} disabled={isCalculating} style={{ width: '100%', height: '52px', backgroundColor: '#0F766E', color: 'white', border: 'none', borderRadius: '8px', fontSize: '18px', fontWeight: '600', cursor: isCalculating ? 'not-allowed' : 'pointer', opacity: isCalculating ? '0.7' : '1', marginTop: '8px' }}>
@@ -563,7 +538,7 @@ function App() {
 
         {results && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            {results.loanAmount > 0 && results.monthlyPayment > 0 && (
+            
               <div style={{ backgroundColor: results.isLoanRecommended ? '#D1FAE5' : '#FEF3C7', borderRadius: '16px', padding: '24px', textAlign: 'center', border: '2px solid', borderColor: results.isLoanRecommended ? '#059669' : '#F59E0B' }}>
                 <div style={{ fontSize: '14px', fontWeight: '600', color: results.isLoanRecommended ? '#059669' : '#D97706', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                   {results.isLoanRecommended ? '✨ ÖNERİLEN YOL' : '💡 Alternatif Yaklaşım'}
@@ -579,7 +554,6 @@ function App() {
                   Bu sonuçlar özettedir - Detaylı grafiği aşağıda inceleyin
                 </div>
               </div>
-            )}
 
             <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: '24px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
               <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#1F2937', marginBottom: '16px' }}>
@@ -604,12 +578,10 @@ function App() {
                   <Line type="monotone" dataKey="gercekBirikim" stroke="#8B5CF6" strokeWidth={3} name="Sadece Biriktirme (Gerçek)" strokeDasharray="5 5" dot={false} />
                 </LineChart>
               </ResponsiveContainer>
-              {results.loanAmount > 0 && results.monthlyPayment > 0 && (
-                <div style={{ marginTop: '24px', fontSize: '16px', fontWeight: '600', color: '#1F2937' }}>
-                  ⚔️ Kredi Yolu:
-                </div>
-              )}
-              {results.loanAmount > 0 && results.monthlyPayment > 0 && (
+              <div style={{ marginTop: '24px', fontSize: '16px', fontWeight: '600', color: '#1F2937' }}>
+                ⚔️ Kredi Yolu:
+              </div>
+              
                 <ResponsiveContainer width="100%" height={350}>
                   <LineChart data={results.loanPath.chartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
@@ -629,9 +601,8 @@ function App() {
                     <Line type="monotone" dataKey="gercekBirikim" stroke="#7C3AED" strokeWidth={3} name="Kredi + Yatırım (Gerçek)" strokeDasharray="5 5" dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
-              )}
               <div style={{ marginTop: '16px', fontSize: '12px', color: '#6B7280', lineHeight: '1.5' }}>
-                <span style={{ fontWeight: '600' }}>💡 Not:</span> "Sadece Biriktirme" yolu: Tüm aylık birikimi ev için tutarsınız. "Kredi + Yatırım" yolu: Krediyi öderken, kredi taksidinden fazlasını yatırırsınız. Grafiğindeki nokta, ikinci yolun da evi aldığı ilk ayı gösterir.
+                <span style={{ fontWeight: '600' }}>💡 Not:</span> "Sadece Biriktirme" yolu: Tüm aylık birikimi ev için tutarsınız. "Kredi + Yatırım" yolu: Krediyi öderken, aylık birikimin kredi taksitinden fazlasını yatırırsınız. Bugün ev alırsınız.
               </div>
             </div>
 
@@ -680,22 +651,20 @@ function App() {
                 </div>
               </div>
 
-              {results.loanAmount > 0 && (
-                <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)', minWidth: 0 }}>
-                  <div style={{ fontSize: '12px', fontWeight: '500', color: '#6B7280', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Kredi + Yatırım - Son Durum
-                  </div>
-                  <div style={{ fontSize: '16px', fontWeight: '600', color: '#1F2937', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {formatCurrency(results.loanPath.finalSavings)}
-                  </div>
-                  <div style={{ fontSize: '11px', color: '#9CA3AF', fontWeight: '500', marginTop: '4px' }}>
-                    Toplam Yatırım: {formatCurrency(results.loanPath.totalInvested)}
-                  </div>
-                  <div style={{ fontSize: '11px', color: '#9CA3AF', fontWeight: '500', marginTop: '4px' }}>
-                    Kredi Ödendi: {formatCurrency(results.loanPath.finalSavings - results.loanPath.totalInvested)}
-                  </div>
+              <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)', minWidth: 0 }}>
+                <div style={{ fontSize: '12px', fontWeight: '500', color: '#6B7280', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Kredi ile Bugün Al - Son Durum
                 </div>
-              )}
+                <div style={{ fontSize: '16px', fontWeight: '600', color: '#1F2937', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {formatCurrency(results.loanPath.finalSavings)}
+                </div>
+                <div style={{ fontSize: '11px', color: '#9CA3AF', fontWeight: '500', marginTop: '4px' }}>
+                  Yatırılan: {formatCurrency(results.loanPath.totalInvested)}
+                </div>
+                <div style={{ fontSize: '11px', color: '#9CA3AF', fontWeight: '500', marginTop: '4px' }}>
+                  {results.loanYears} yılda {formatCurrency(results.loanPath.totalPaid)} ödenir
+                </div>
+              </div>
             </div>
           </div>
         )}
