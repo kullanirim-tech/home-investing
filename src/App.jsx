@@ -140,7 +140,7 @@ function App() {
     if (focusedInput === name) {
       return value === 0 ? '' : String(value)
     }
-    return String(value)
+    return value.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
   }
 
   const getNumberDisplayValue = (name, value) => {
