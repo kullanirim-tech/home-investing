@@ -110,12 +110,12 @@ function App() {
   }
 
   const debouncedSave = useCallback((value, name) => {
-    if (window.storage) {
+    if (typeof localStorage !== 'undefined') {
       const newInputs = { ...inputs, [name]: value }
       if (savedTimeout) clearTimeout(savedTimeout)
-      const timeout = setTimeout(async () => {
+      const timeout = setTimeout(() => {
         try {
-          await window.storage.set('evAlim_inputs', JSON.stringify(newInputs))
+          localStorage.setItem('evAlim_inputs', JSON.stringify(newInputs))
           setToast('Kaydedildi ✓')
           setTimeout(() => setToast(null), 2000)
         } catch (e) {
@@ -165,11 +165,11 @@ function App() {
   }
 
   useEffect(() => {
-    const loadInputs = async () => {
+    const loadInputs = () => {
       try {
-        const saved = await window.storage.get('evAlim_inputs')
-        if (saved && saved.value) {
-          const parsed = JSON.parse(saved.value)
+        const saved = localStorage.getItem('evAlim_inputs')
+        if (saved) {
+          const parsed = JSON.parse(saved)
           setInputs({
             currentSavings: parsed.currentSavings || 0,
             monthlySavings: parsed.monthlySavings || 0,
@@ -206,7 +206,7 @@ function App() {
     setResults(null)
   }
 
-  const clearInputs = async () => {
+  const clearInputs = () => {
     setInputs({
       currentSavings: 0,
       monthlySavings: 0,
@@ -218,9 +218,9 @@ function App() {
       loanYears: 30,
     })
     setResults(null)
-    if (window.storage) {
+    if (typeof localStorage !== 'undefined') {
       try {
-        await window.storage.delete('evAlim_inputs')
+        localStorage.removeItem('evAlim_inputs')
       } catch (e) {
         console.error('Storage delete error:', e)
       }
