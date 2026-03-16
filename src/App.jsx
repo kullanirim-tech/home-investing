@@ -44,6 +44,7 @@ function App() {
     annualInflationRate: 0,
     loanInterest: 0,
     loanYears: 30,
+    monthlyRent: 0,
   })
 
   const [focusedInput, setFocusedInput] = useState(null)
@@ -237,7 +238,7 @@ function App() {
     return principal * (monthlyRate * Math.pow(1 + monthlyRate, numPayments)) / (Math.pow(1 + monthlyRate, numPayments) - 1)
   }
 
-  const calculateSavingsPath = (currentSavings, monthlySavings, monthlyReturn, housePrice, annualRealEstateGrowth, annualInflationRate) => {
+  const calculateSavingsPath = (currentSavings, monthlySavings, monthlyRent, monthlyReturn, housePrice, annualRealEstateGrowth, annualInflationRate) => {
     const monthlyInvestmentRate = monthlyReturn / 100
     const monthlyHouseRate = Math.pow(1 + annualRealEstateGrowth / 100, 1/12) - 1
     const monthlyInflationRate = Math.pow(1 + annualInflationRate / 100, 1/12) - 1
@@ -251,10 +252,14 @@ function App() {
     let totalMonths = 0
 
     for (let month = 1; month <= maxMonths; month++) {
-      savings = savings * (1 + monthlyInvestmentRate) + monthlySavings
+      // Kira maliyeti: enflasyona göre artar
+      const currentRent = monthlyRent * Math.pow(1 + monthlyInflationRate, month - 1)
+      const netMonthlySavings = monthlySavings - currentRent
+
+      savings = savings * (1 + monthlyInvestmentRate) + Math.max(0, netMonthlySavings)
       price = price * (1 + monthlyHouseRate)
 
-      const monthlySavingsRealValue = monthlySavings / Math.pow(1 + monthlyInflationRate, month - 1)
+      const monthlySavingsRealValue = Math.max(0, netMonthlySavings) / Math.pow(1 + monthlyInflationRate, month - 1)
       realSavings = realSavings * (1 + realMonthlyReturn) + monthlySavingsRealValue
 
       chartData.push({
@@ -352,6 +357,55 @@ function App() {
     }
   }
 
+  const calculateRentInvestPath = (currentSavings, monthlySavings, monthlyRent, monthlyReturn, annualInflationRate, loanYears) => {
+    const monthlyInvestmentRate = monthlyReturn / 100
+    const monthlyInflationRate = Math.pow(1 + annualInflationRate / 100, 1/12) - 1
+    const realMonthlyReturn = ((1 + monthlyInvestmentRate) / (1 + monthlyInflationRate)) - 1
+
+    let investment = currentSavings
+    let realInvestment = currentSavings
+    let totalRentPaid = 0
+    const chartData = []
+    const maxMonths = loanYears * 12
+
+    for (let month = 1; month <= maxMonths; month++) {
+      // Kira ödemesi: enflasyona göre artar
+      const currentRent = monthlyRent * Math.pow(1 + monthlyInflationRate, month - 1)
+      totalRentPaid += currentRent
+
+      // Kira sonrası yatırım
+      const availableForInvestment = monthlySavings - currentRent
+      if (availableForInvestment > 0) {
+        investment = investment * (1 + monthlyInvestmentRate) + availableForInvestment
+      }
+
+      const monthlySavingsRealValue = availableForInvestment / Math.pow(1 + monthlyInflationRate, month - 1)
+      realInvestment = realInvestment * (1 + realMonthlyReturn) + monthlySavingsRealValue
+
+      chartData.push({
+        ay: month,
+        path: 'rentInvest',
+        birikim: Math.round(investment),
+        gercekBirikim: Math.round(realInvestment),
+      })
+    }
+
+    const today = new Date()
+    const targetDate = new Date(today)
+    targetDate.setMonth(targetDate.getMonth() + maxMonths)
+
+    return {
+      months: maxMonths,
+      years: loanYears,
+      remainingMonths: 0,
+      targetDate: targetDate.toLocaleDateString('tr-TR', { year: 'numeric', month: 'long' }),
+      finalSavings: Math.round(investment),
+      finalRealSavings: Math.round(realInvestment),
+      totalRentPaid: Math.round(totalRentPaid),
+      chartData,
+    }
+  }
+
   const comparePaths = () => {
     setIsCalculating(true)
 
@@ -364,6 +418,7 @@ function App() {
       const annualInflationRate = parseFloat(inputs.annualInflationRate) || 0
       const loanInterest = parseFloat(inputs.loanInterest) || 0
       const loanYears = parseInt(inputs.loanYears) || 30
+      const monthlyRent = parseFloat(inputs.monthlyRent) || 0
 
       if (housePrice <= 0) {
         setIsCalculating(false)
@@ -374,6 +429,7 @@ function App() {
       const savingsPath = calculateSavingsPath(
         currentSavings,
         monthlySavings,
+        monthlyRent,
         monthlyReturn,
         housePrice,
         annualRealEstateGrowth,
@@ -391,10 +447,21 @@ function App() {
         loanYears
       )
 
+      const rentInvestPath = calculateRentInvestPath(
+        currentSavings,
+        monthlySavings,
+        monthlyRent,
+        monthlyReturn,
+        annualInflationRate,
+        loanYears
+      )
+
       setResults({
         savingsPath,
         loanPath,
+        rentInvestPath,
         isLoanRecommended: savingsPath.finalSavings < loanPath.finalSavings,
+        isRentInvestRecommended: rentInvestPath.finalSavings > Math.max(savingsPath.finalSavings, loanPath.finalSavings),
       })
 
       setIsCalculating(false)
@@ -493,6 +560,19 @@ function App() {
               <input type="text" value={getPercentageDisplayValue('annualInflationRate', inputs.annualInflationRate)} onChange={(e) => handlePercentageInputChange(e, 'annualInflationRate')} onFocus={() => handleInputFocus('annualInflationRate')} onBlur={() => handleInputBlur('annualInflationRate')} placeholder="0" style={{ width: '100%', height: '48px', padding: '12px 16px', fontSize: '16px', border: '1px solid #E5E7EB', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }} />
             </div>
 
+            <div>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
+                <span style={{ display: 'inline-block', backgroundColor: '#FED7AA', color: '#EA580C', padding: '2px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: '600', marginRight: '8px' }}>
+                  🏢
+                </span>
+                Mevcut Aylık Kira (Opsiyonel)
+              </label>
+              <input type="text" value={getCurrencyDisplayValue('monthlyRent', inputs.monthlyRent)} onChange={(e) => handleCurrencyInputChange(e, 'monthlyRent')} onFocus={() => handleInputFocus('monthlyRent')} onBlur={() => handleInputBlur('monthlyRent')} placeholder="0" style={{ width: '100%', height: '48px', padding: '12px 16px', fontSize: '16px', border: '1px solid #E5E7EB', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' }} />
+              <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '4px' }}>
+                "Sadece biriktirme" yolunda kira gideri düşülür. Enflasyona göre artar.
+              </div>
+            </div>
+
             <div style={{ borderTop: '1px solid #E5E7EB', paddingTop: '16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#1F2937', margin: 0 }}>
@@ -553,15 +633,17 @@ function App() {
         {results && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             
-              <div style={{ backgroundColor: results.isLoanRecommended ? '#D1FAE5' : '#FEF3C7', borderRadius: '16px', padding: '24px', textAlign: 'center', border: '2px solid', borderColor: results.isLoanRecommended ? '#059669' : '#F59E0B' }}>
+              <div style={{ backgroundColor: results.isLoanRecommended ? '#D1FAE5' : results.isRentInvestRecommended ? '#DBEAFE' : '#FEF3C7', borderRadius: '16px', padding: '24px', textAlign: 'center', border: '2px solid', borderColor: results.isLoanRecommended ? '#059669' : results.isRentInvestRecommended ? '#2563EB' : '#F59E0B' }}>
                 <div style={{ fontSize: '14px', fontWeight: '600', color: results.isLoanRecommended ? '#059669' : '#D97706', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                   {results.isLoanRecommended ? '✨ ÖNERİLEN YOL' : '💡 Alternatif Yaklaşım'}
                 </div>
                 <div style={{ fontSize: '16px', color: '#374151', marginBottom: '12px' }}>
-                  {results.savingsPath.finalSavings < results.loanPath.finalSavings ? (
-                    <span>Kredi alıp farkı yatırmak {formatCurrency(results.loanPath.finalSavings - results.savingsPath.finalSavings)}{' '}daha avantajlı!</span>
+                  {results.isLoanRecommended ? (
+                    <span>Kredi alıp evi almak en avantajlı!</span>
+                  ) : results.isRentInvestRecommended ? (
+                    <span>Kirada oturup yatırım yapmak en avantajlı!</span>
                   ) : (
-                    <span>Sadece biriktirmek {formatCurrency(results.savingsPath.finalSavings - results.loanPath.finalSavings)}{' '}daha avantajlı!</span>
+                    <span>Biriktirip ev almak en avantajlı!</span>
                   )}
                 </div>
                 <div style={{ fontSize: '12px', color: '#6B7280' }}>
@@ -615,6 +697,26 @@ function App() {
                     <Line type="monotone" dataKey="gercekBirikim" stroke="#7C3AED" strokeWidth={3} name="Kredi + Yatırım (Gerçek)" strokeDasharray="5 5" dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
+              <div style={{ marginTop: '24px', fontSize: '16px', fontWeight: '600', color: '#1F2937' }}>
+                🏠 Kirada + Yatırım:
+              </div>
+              
+                <ResponsiveContainer width="100%" height={350}>
+                  <LineChart data={results.rentInvestPath.chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                    <XAxis
+                      dataKey="ay"
+                      stroke="#6B7280"
+                      tick={{ fontSize: 12 }}
+                      interval={getXAxisInterval()}
+                      label={{ value: 'Ay', position: 'insideBottom', offset: -5 }}
+                    />
+                    <YAxis stroke="#6B7280" tick={{ fontSize: 12 }} tickFormatter={formatYAxis} label={{ value: 'TL', angle: -90, position: 'insideLeft' }} />
+                    <Tooltip formatter={(value) => formatCurrency(value)} contentStyle={{ backgroundColor: 'white', border: '1px solid #E5E7EB', borderRadius: '8px', padding: '12px' }} />
+                    <Line type="monotone" dataKey="birikim" stroke="#2563EB" strokeWidth={3} name="Kirada + Yatırım (Nominal)" dot={false} />
+                    <Line type="monotone" dataKey="gercekBirikim" stroke="#0EA5E9" strokeWidth={3} name="Kirada + Yatırım (Gerçek)" strokeDasharray="5 5" dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
               <div style={{ marginTop: '16px', fontSize: '12px', color: '#6B7280', lineHeight: '1.5' }}>
                 <span style={{ fontWeight: '600' }}>💡 Not:</span> "Sadece Biriktirme" yolu: Tüm aylık birikimi ev için tutarsınız. "Kredi + Yatırım" yolu: Krediyi öderken, aylık birikimin kredi taksitinden fazlasını yatırırsınız. Bugün ev alırsınız.
               </div>
@@ -626,11 +728,11 @@ function App() {
               </h3>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={[
-                  { label: '5 Yıl', savings: results.savingsPath.chartData.find(d => d.ay === 60)?.birikim || 0, loan: results.loanPath.chartData.find(d => d.ay === 60)?.birikim || 0 },
-                  { label: '10 Yıl', savings: results.savingsPath.chartData.find(d => d.ay === 120)?.birikim || 0, loan: results.loanPath.chartData.find(d => d.ay === 120)?.birikim || 0 },
-                  { label: '15 Yıl', savings: results.savingsPath.chartData.find(d => d.ay === 180)?.birikim || 0, loan: results.loanPath.chartData.find(d => d.ay === 180)?.birikim || 0 },
-                  { label: '20 Yıl', savings: results.savingsPath.chartData.find(d => d.ay === 240)?.birikim || 0, loan: results.loanPath.chartData.find(d => d.ay === 240)?.birikim || 0 },
-                  { label: '30 Yıl', savings: results.savingsPath.chartData.find(d => d.ay === 360)?.birikim || 0, loan: results.loanPath.chartData.find(d => d.ay === 360)?.birikim || 0 },
+                  { label: '5 Yıl', savings: results.savingsPath.chartData.find(d => d.ay === 60)?.birikim || 0, loan: results.loanPath.chartData.find(d => d.ay === 60)?.birikim || 0, rentInvest: results.rentInvestPath.chartData.find(d => d.ay === 60)?.birikim || 0 },
+                  { label: '10 Yıl', savings: results.savingsPath.chartData.find(d => d.ay === 120)?.birikim || 0, loan: results.loanPath.chartData.find(d => d.ay === 120)?.birikim || 0, rentInvest: results.rentInvestPath.chartData.find(d => d.ay === 120)?.birikim || 0 },
+                  { label: '15 Yıl', savings: results.savingsPath.chartData.find(d => d.ay === 180)?.birikim || 0, loan: results.loanPath.chartData.find(d => d.ay === 180)?.birikim || 0, rentInvest: results.rentInvestPath.chartData.find(d => d.ay === 180)?.birikim || 0 },
+                  { label: '20 Yıl', savings: results.savingsPath.chartData.find(d => d.ay === 240)?.birikim || 0, loan: results.loanPath.chartData.find(d => d.ay === 240)?.birikim || 0, rentInvest: results.rentInvestPath.chartData.find(d => d.ay === 240)?.birikim || 0 },
+                  { label: '30 Yıl', savings: results.savingsPath.chartData.find(d => d.ay === 360)?.birikim || 0, loan: results.loanPath.chartData.find(d => d.ay === 360)?.birikim || 0, rentInvest: results.rentInvestPath.chartData.find(d => d.ay === 360)?.birikim || 0 },
                 ]}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                   <XAxis dataKey="label" stroke="#6B7280" tick={{ fontSize: 12 }} />
@@ -638,10 +740,11 @@ function App() {
                   <Tooltip formatter={(value) => formatCurrency(value)} contentStyle={{ backgroundColor: 'white', border: '1px solid #E5E7EB', borderRadius: '8px', padding: '12px' }} />
                   <Bar dataKey="savings" stackId="a" fill="#0F766E" name="Sadece Biriktirme" />
                   <Bar dataKey="loan" stackId="a" fill="#DC2626" name="Kredi + Yatırım" />
+                  <Bar dataKey="rentInvest" stackId="a" fill="#2563EB" name="Kirada + Yatırım" />
                 </BarChart>
               </ResponsiveContainer>
               <div style={{ marginTop: '16px', fontSize: '12px', color: '#6B7280', lineHeight: '1.5' }}>
-                <span style={{ fontWeight: '600' }}>📈 Not:</span> Bar grafikte, her yıl için iki yolun toplam varlığını gösterir. Kırmızı bar "Kredi + Yatırım" yolunu, turuncu bar "Sadece Biriktirme" yolunu temsil eder. Stacked bar olduğu için, genişlikleri toplam varlık kadar gösterir.
+                <span style={{ fontWeight: '600' }}>📈 Not:</span> Bar grafikte, her yıl için üç yolun toplam varlığını gösterir. Yeşil "Sadece Biriktirme", kırmızı "Kredi + Yatırım", mavi "Kirada + Yatırım" yolunu temsil eder.
               </div>
             </div>
 
