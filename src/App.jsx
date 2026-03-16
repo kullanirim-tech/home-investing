@@ -45,6 +45,10 @@ function App() {
     loanInterest: 0,
     loanYears: 30,
     monthlyRent: 0,
+    tapuHarci: 0,
+    ekspertiz: 0,
+    dask: 0,
+    vergiOrani: 0,
   })
 
   const [focusedInput, setFocusedInput] = useState(null)
@@ -180,6 +184,11 @@ function App() {
             annualInflationRate: parsed.annualInflationRate || 0,
             loanInterest: parsed.loanInterest || 0,
             loanYears: parsed.loanYears || 30,
+            monthlyRent: parsed.monthlyRent || 0,
+            tapuHarci: parsed.tapuHarci || 0,
+            ekspertiz: parsed.ekspertiz || 0,
+            dask: parsed.dask || 0,
+            vergiOrani: parsed.vergiOrani || 0,
           })
         }
       } catch (e) {
@@ -217,6 +226,11 @@ function App() {
       annualInflationRate: 0,
       loanInterest: 0,
       loanYears: 30,
+      monthlyRent: 0,
+      tapuHarci: 0,
+      ekspertiz: 0,
+      dask: 0,
+      vergiOrani: 0,
     })
     setResults(null)
     if (typeof localStorage !== 'undefined') {
@@ -238,15 +252,22 @@ function App() {
     return principal * (monthlyRate * Math.pow(1 + monthlyRate, numPayments)) / (Math.pow(1 + monthlyRate, numPayments) - 1)
   }
 
-  const calculateSavingsPath = (currentSavings, monthlySavings, monthlyRent, monthlyReturn, housePrice, annualRealEstateGrowth, annualInflationRate) => {
+  const calculateSavingsPath = (currentSavings, monthlySavings, monthlyRent, monthlyReturn, housePrice, annualRealEstateGrowth, annualInflationRate, tapuHarci, ekspertiz, dask, vergiOrani) => {
     const monthlyInvestmentRate = monthlyReturn / 100
     const monthlyHouseRate = Math.pow(1 + annualRealEstateGrowth / 100, 1/12) - 1
     const monthlyInflationRate = Math.pow(1 + annualInflationRate / 100, 1/12) - 1
     const realMonthlyReturn = ((1 + monthlyInvestmentRate) / (1 + monthlyInflationRate)) - 1
 
+    // Ek maliyetler: Tapu harcı, ekspertiz, DASK
+    const totalExtraCosts = tapuHarci + ekspertiz + dask
+    const totalExtraCostsMonthly = totalExtraCosts / 120 // 10 yıl boyunca
+
+    // Vergi oranı: Yatırım getirisinden kesilecek
+    const netInvestmentRate = monthlyInvestmentRate * (1 - vergiOrani / 100)
+
     let savings = currentSavings
     let realSavings = currentSavings
-    let price = housePrice
+    let price = housePrice + totalExtraCosts
     const chartData = []
     const maxMonths = 480
     let totalMonths = 0
@@ -254,9 +275,9 @@ function App() {
     for (let month = 1; month <= maxMonths; month++) {
       // Kira maliyeti: enflasyona göre artar
       const currentRent = monthlyRent * Math.pow(1 + monthlyInflationRate, month - 1)
-      const netMonthlySavings = monthlySavings - currentRent
+      const netMonthlySavings = monthlySavings - currentRent - totalExtraCostsMonthly
 
-      savings = savings * (1 + monthlyInvestmentRate) + Math.max(0, netMonthlySavings)
+      savings = savings * (1 + netInvestmentRate) + Math.max(0, netMonthlySavings)
       price = price * (1 + monthlyHouseRate)
 
       const monthlySavingsRealValue = Math.max(0, netMonthlySavings) / Math.pow(1 + monthlyInflationRate, month - 1)
@@ -357,10 +378,17 @@ function App() {
     }
   }
 
-  const calculateRentInvestPath = (currentSavings, monthlySavings, monthlyRent, monthlyReturn, annualInflationRate, loanYears) => {
+  const calculateRentInvestPath = (currentSavings, monthlySavings, monthlyRent, monthlyReturn, annualInflationRate, loanYears, tapuHarci, ekspertiz, dask, vergiOrani) => {
     const monthlyInvestmentRate = monthlyReturn / 100
     const monthlyInflationRate = Math.pow(1 + annualInflationRate / 100, 1/12) - 1
     const realMonthlyReturn = ((1 + monthlyInvestmentRate) / (1 + monthlyInflationRate)) - 1
+
+    // Ek maliyetler: Tapu harcı, ekspertiz, DASK
+    const totalExtraCosts = tapuHarci + ekspertiz + dask
+    const totalExtraCostsMonthly = totalExtraCosts / 120 // 10 yıl boyunca
+
+    // Vergi oranı: Yatırım getirisinden kesilecek
+    const netInvestmentRate = monthlyInvestmentRate * (1 - vergiOrani / 100)
 
     let investment = currentSavings
     let realInvestment = currentSavings
@@ -374,9 +402,9 @@ function App() {
       totalRentPaid += currentRent
 
       // Kira sonrası yatırım
-      const availableForInvestment = monthlySavings - currentRent
+      const availableForInvestment = monthlySavings - currentRent - totalExtraCostsMonthly
       if (availableForInvestment > 0) {
-        investment = investment * (1 + monthlyInvestmentRate) + availableForInvestment
+        investment = investment * (1 + netInvestmentRate) + availableForInvestment
       }
 
       const monthlySavingsRealValue = availableForInvestment / Math.pow(1 + monthlyInflationRate, month - 1)
@@ -419,6 +447,10 @@ function App() {
       const loanInterest = parseFloat(inputs.loanInterest) || 0
       const loanYears = parseInt(inputs.loanYears) || 30
       const monthlyRent = parseFloat(inputs.monthlyRent) || 0
+      const tapuHarci = parseFloat(inputs.tapuHarci) || 0
+      const ekspertiz = parseFloat(inputs.ekspertiz) || 0
+      const dask = parseFloat(inputs.dask) || 0
+      const vergiOrani = parseFloat(inputs.vergiOrani) || 0
 
       if (housePrice <= 0) {
         setIsCalculating(false)
@@ -433,7 +465,11 @@ function App() {
         monthlyReturn,
         housePrice,
         annualRealEstateGrowth,
-        annualInflationRate
+        annualInflationRate,
+        tapuHarci,
+        ekspertiz,
+        dask,
+        vergiOrani
       )
 
       const loanPath = calculateLoanPath(
@@ -453,7 +489,11 @@ function App() {
         monthlyRent,
         monthlyReturn,
         annualInflationRate,
-        loanYears
+        loanYears,
+        tapuHarci,
+        ekspertiz,
+        dask,
+        vergiOrani
       )
 
       setResults({
@@ -470,6 +510,36 @@ function App() {
 
   const getXAxisInterval = () => {
     return results && results.savingsPath.months > 24 ? 3 : 1
+  }
+
+  const generateCSV = () => {
+    const rows = generateCSVRows()
+    let csv = 'Ay,Biriktirme,Kredi + Yatırım,Kirada + Yatırım\\n'
+    rows.forEach(row => {
+      csv += `${row.ay},${row.biriktirme},${row.kredi},${row.kirada}\\n`
+    })
+    return csv
+  }
+
+  const generateCSVRows = () => {
+    if (!results) return []
+    const allData = [
+      ...results.savingsPath.chartData.map(d => ({ ...d, path: 'savings' })),
+      ...results.loanPath.chartData.map(d => ({ ...d, path: 'loan' })),
+      ...results.rentInvestPath.chartData.map(d => ({ ...d, path: 'rentInvest' })),
+    ]
+    const uniqueData = {}
+    allData.forEach(d => {
+      if (!uniqueData[d.ay] || uniqueData[d.ay].birikim < d.birikim) {
+        uniqueData[d.ay] = {
+          ay: d.ay,
+          biriktirme: d.path === 'savings' ? d.birikim : uniqueData[d.ay]?.biriktirme || 0,
+          kredi: d.path === 'loan' ? d.birikim : uniqueData[d.ay]?.kredi || 0,
+          kirada: d.path === 'rentInvest' ? d.birikim : uniqueData[d.ay]?.kirada || 0,
+        }
+      }
+    })
+    return Object.values(uniqueData).sort((a, b) => a.ay - b.ay)
   }
 
   return (
@@ -616,6 +686,46 @@ function App() {
                   </div>
                 </div>
               )}
+            </div>
+
+            <div style={{ borderTop: '1px solid #E5E7EB', paddingTop: '16px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#1F2937', marginBottom: '16px' }}>
+                📝 Ek Maliyetler
+              </h3>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: '#374151', marginBottom: '4px' }}>
+                    Tapu Harcı (₺)
+                  </label>
+                  <input type="text" value={getCurrencyDisplayValue('tapuHarci', inputs.tapuHarci)} onChange={(e) => handleCurrencyInputChange(e, 'tapuHarci')} onFocus={() => handleInputFocus('tapuHarci')} onBlur={() => handleInputBlur('tapuHarci')} placeholder="0" style={{ width: '100%', height: '40px', padding: '8px 12px', fontSize: '14px', border: '1px solid #E5E7EB', borderRadius: '6px', outline: 'none', boxSizing: 'border-box' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: '#374151', marginBottom: '4px' }}>
+                    Ekspertiz (₺)
+                  </label>
+                  <input type="text" value={getCurrencyDisplayValue('ekspertiz', inputs.ekspertiz)} onChange={(e) => handleCurrencyInputChange(e, 'ekspertiz')} onFocus={() => handleInputFocus('ekspertiz')} onBlur={() => handleInputBlur('ekspertiz')} placeholder="0" style={{ width: '100%', height: '40px', padding: '8px 12px', fontSize: '14px', border: '1px solid #E5E7EB', borderRadius: '6px', outline: 'none', boxSizing: 'border-box' }} />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: '#374151', marginBottom: '4px' }}>
+                    DASK (₺)
+                  </label>
+                  <input type="text" value={getCurrencyDisplayValue('dask', inputs.dask)} onChange={(e) => handleCurrencyInputChange(e, 'dask')} onFocus={() => handleInputFocus('dask')} onBlur={() => handleInputBlur('dask')} placeholder="0" style={{ width: '100%', height: '40px', padding: '8px 12px', fontSize: '14px', border: '1px solid #E5E7EB', borderRadius: '6px', outline: 'none', boxSizing: 'border-box' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: '#374151', marginBottom: '4px' }}>
+                    Yatırım Vergisi (%)
+                  </label>
+                  <input type="text" value={getPercentageDisplayValue('vergiOrani', inputs.vergiOrani)} onChange={(e) => handlePercentageInputChange(e, 'vergiOrani')} onFocus={() => handleInputFocus('vergiOrani')} onBlur={() => handleInputBlur('vergiOrani')} placeholder="0" style={{ width: '100%', height: '40px', padding: '8px 12px', fontSize: '14px', border: '1px solid #E5E7EB', borderRadius: '6px', outline: 'none', boxSizing: 'border-box' }} />
+                </div>
+              </div>
+
+              <div style={{ fontSize: '12px', color: '#6B7280', lineHeight: '1.5' }}>
+                <span style={{ fontWeight: '600' }}>💡 Not:</span> Ek maliyetler "Sadece biriktirme" ve "Kirada + Yatırım" senaryolarında kira giderinden düşülür. Kredi senaryosunda ek maliyetler tahmini olarak 10 yıl boyunca yıllık olarak taksitlere eklenebilir.
+              </div>
             </div>
 
             <button onClick={comparePaths} disabled={isCalculating} style={{ width: '100%', height: '52px', backgroundColor: '#0F766E', color: 'white', border: 'none', borderRadius: '8px', fontSize: '18px', fontWeight: '600', cursor: isCalculating ? 'not-allowed' : 'pointer', opacity: isCalculating ? '0.7' : '1', marginTop: '8px' }}>
@@ -781,6 +891,52 @@ function App() {
                 <div style={{ fontSize: '11px', color: '#9CA3AF', fontWeight: '500', marginTop: '4px' }}>
                   {results.loanYears} yılda {formatCurrency(results.loanPath.totalPaid)} ödenir
                 </div>
+              </div>
+            </div>
+
+            <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: '24px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#1F2937', margin: 0 }}>
+                  📋 Ay Bazlı Karşılaştırma
+                </h3>
+                <button
+                  onClick={() => {
+                    const csvContent = generateCSV()
+                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+                    const link = document.createElement('a')
+                    link.href = URL.createObjectURL(blob)
+                    link.download = 'ev-alim-karsilastirma.csv'
+                    link.click()
+                  }}
+                  style={{ padding: '8px 16px', backgroundColor: '#0F766E', color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '500', cursor: 'pointer' }}
+                >
+                  İndir
+                </button>
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#F9FAFB', borderBottom: '2px solid #E5E7EB' }}>
+                      <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#374151' }}>Ay</th>
+                      <th style={{ padding: '12px', textAlign: 'right', fontWeight: '600', color: '#374151' }}>Biriktirme</th>
+                      <th style={{ padding: '12px', textAlign: 'right', fontWeight: '600', color: '#374151' }}>Kredi + Yatırım</th>
+                      <th style={{ padding: '12px', textAlign: 'right', fontWeight: '600', color: '#374151' }}>Kirada + Yatırım</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {generateCSVRows().map((row, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid #E5E7EB', transition: 'background-color 0.2s' }}>
+                        <td style={{ padding: '12px' }}>{row.ay}</td>
+                        <td style={{ padding: '12px', textAlign: 'right' }}>{formatCurrency(row.biriktirme)}</td>
+                        <td style={{ padding: '12px', textAlign: 'right' }}>{formatCurrency(row.kredi)}</td>
+                        <td style={{ padding: '12px', textAlign: 'right' }}>{formatCurrency(row.kirada)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ marginTop: '16px', fontSize: '12px', color: '#6B7280' }}>
+                * Tabloyu CSV olarak indirebilirsiniz
               </div>
             </div>
           </div>
